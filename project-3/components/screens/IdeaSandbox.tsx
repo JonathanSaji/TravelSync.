@@ -417,7 +417,7 @@ export default function IdeaSandbox({
         {/* Idea text */}
         <div className="mb-[13px]">
           <label htmlFor="inp-idea" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
-            Idea or Link
+            Idea or Preference
           </label>
           <textarea
             id="inp-idea"
@@ -426,7 +426,7 @@ export default function IdeaSandbox({
             onChange={e => setIdeaText(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={isGenerating}
-            placeholder="e.g. New sushi resturant in Ottawa, a Google Maps link, rooftop bar, hidden gems, Instagram link, etc…"
+            placeholder="e.g. I want hiking + nature views, budget-friendly food spots, 9 am start time, avoid messy areas"
             className="textarea-field"
           />
         </div>

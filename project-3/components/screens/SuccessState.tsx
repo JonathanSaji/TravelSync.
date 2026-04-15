@@ -56,14 +56,16 @@ function tripToStopsForDay(trip: GeneratedTrip, dayIndex: number): FinalStop[] {
 
 function tripToShareLines(trip: GeneratedTrip): string[] {
   const lines: string[] = []
-  let n = 1
   for (const day of trip.itinerary) {
+    lines.push(`Day ${day.day} — ${day.theme}`)
     for (const activity of day.activities) {
-      lines.push(`${n}. Day ${day.day} · ${activity.time} — ${activity.name}`)
-      n++
+      const tags = activity.tags.length ? ` [${activity.tags.join(', ')}]` : ''
+      lines.push(`- ${activity.time} · ${activity.name}`)
+      lines.push(`  ${activity.description}${tags}`)
     }
+    lines.push('')
   }
-  return lines
+  return lines.filter((line, index, arr) => !(line === '' && index === arr.length - 1))
 }
 
 // ── Screen component ────────────────────────────────────────────────────────
@@ -76,24 +78,53 @@ export default function SuccessState({ planDetails, trip, onStartOver, showToast
     [trip, activeDayIndex, days.length],
   )
 
-  const handleCopyLink = () => {
-    const url = `https://harmony.app/p/${Math.random().toString(36).slice(2, 8).toUpperCase()}`
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(() => showToast('Link copied! 🔗'))
-    } else {
-      showToast('Link copied! 🔗')
+  const copyText = async (value: string): Promise<boolean> => {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      try {
+        const fallback = document.createElement('textarea')
+        fallback.value = value
+        fallback.setAttribute('readonly', 'true')
+        fallback.style.position = 'fixed'
+        fallback.style.opacity = '0'
+        document.body.appendChild(fallback)
+        fallback.focus()
+        fallback.select()
+        const ok = document.execCommand('copy')
+        document.body.removeChild(fallback)
+        return ok
+      } catch {
+        return false
+      }
     }
+  }
+
+  const handleCopyLink = () => {
+    const url = typeof window !== 'undefined' ? window.location.href : ''
+    if (!url) {
+      showToast('No link available to copy.')
+      return
+    }
+    void copyText(url).then(ok => {
+      showToast(ok ? 'Link copied! 🔗' : 'Could not copy link.')
+    })
   }
 
   const handleShareText = () => {
     const stopsText = tripToShareLines(trip).join('\n')
-    const msg   = `✅ ${trip.tripName} — Plan Locked!\n📍 ${planDetails.location}  ·  🗓️ ${planDetails.dates}\n\n${stopsText}\n\nSee you there! 🎉`
-    if (navigator.share) {
-      navigator.share({ title: trip.tripName, text: msg })
-    } else {
-      navigator.clipboard?.writeText(msg)
-      showToast('Plan text copied! 💬')
-    }
+    const harmonyLine = trip.harmonyPlan?.conflicts?.length
+      ? `\nSyncing ideas: ${trip.harmonyPlan.conflicts
+          .map(c => `${c.title} -> ${c.resolution?.plan ?? 'balanced in itinerary'}`)
+          .join(' | ')}`
+      : trip.harmonyPlan?.note
+        ? `\nSyncing ideas: ${trip.harmonyPlan.note}`
+        : ''
+    const msg = `AI Trip Draft\nTrip: ${trip.tripName}\nLocation: ${planDetails.location}\nDates: ${planDetails.dates}${harmonyLine}\n\nItinerary:\n${stopsText}`
+    void copyText(msg).then(ok => {
+      showToast(ok ? 'AI itinerary text copied! 💬' : 'Could not copy itinerary text.')
+    })
   }
 
   return (

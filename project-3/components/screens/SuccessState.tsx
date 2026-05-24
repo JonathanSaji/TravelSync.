@@ -9,8 +9,13 @@ import TopBar from '../TopBar'
 interface Props {
   planDetails: PlanDetails
   trip: GeneratedTrip
+  tripId: string | null
   onStartOver: () => void
   showToast:   (msg: string) => void
+  authLabel?: string
+  onAuthClick?: () => void
+  currentUserId?: string | null
+  canShareTrip?: boolean
 }
 
 // ── Confirmed itinerary data ────────────────────────────────────────────────
@@ -54,25 +59,15 @@ function tripToStopsForDay(trip: GeneratedTrip, dayIndex: number): FinalStop[] {
   })
 }
 
-function tripToShareLines(trip: GeneratedTrip): string[] {
-  const lines: string[] = []
-  for (const day of trip.itinerary) {
-    lines.push(`Day ${day.day} — ${day.theme}`)
-    for (const activity of day.activities) {
-      const tags = activity.tags.length ? ` [${activity.tags.join(', ')}]` : ''
-      lines.push(`- ${activity.time} · ${activity.name}`)
-      lines.push(`  ${activity.description}${tags}`)
-    }
-    lines.push('')
-  }
-  return lines.filter((line, index, arr) => !(line === '' && index === arr.length - 1))
-}
-
 // ── Screen component ────────────────────────────────────────────────────────
 
-export default function SuccessState({ planDetails, trip, onStartOver, showToast }: Props) {
+export default function SuccessState({ planDetails, trip, tripId, onStartOver, showToast, authLabel, onAuthClick, currentUserId, canShareTrip = true }: Props) {
   const days = trip.itinerary
   const [activeDayIndex, setActiveDayIndex] = useState(0)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareUsername, setShareUsername] = useState('')
+  const [shareEmail, setShareEmail] = useState('')
+  const [shareBusy, setShareBusy] = useState(false)
   const stops = useMemo(
     () => tripToStopsForDay(trip, Math.min(activeDayIndex, Math.max(0, days.length - 1))),
     [trip, activeDayIndex, days.length],
@@ -112,19 +107,49 @@ export default function SuccessState({ planDetails, trip, onStartOver, showToast
     })
   }
 
-  const handleShareText = () => {
-    const stopsText = tripToShareLines(trip).join('\n')
-    const harmonyLine = trip.harmonyPlan?.conflicts?.length
-      ? `\nSyncing ideas: ${trip.harmonyPlan.conflicts
-          .map(c => `${c.title} -> ${c.resolution?.plan ?? 'balanced in itinerary'}`)
-          .join(' | ')}`
-      : trip.harmonyPlan?.note
-        ? `\nSyncing ideas: ${trip.harmonyPlan.note}`
-        : ''
-    const msg = `AI Trip Draft\nTrip: ${trip.tripName}\nLocation: ${planDetails.location}\nDates: ${planDetails.dates}${harmonyLine}\n\nItinerary:\n${stopsText}`
-    void copyText(msg).then(ok => {
-      showToast(ok ? 'AI itinerary text copied! 💬' : 'Could not copy itinerary text.')
-    })
+  const handleShareTrip = async () => {
+    if (!tripId) {
+      showToast('Save the itinerary first before sharing.')
+      return
+    }
+    if (!currentUserId) {
+      showToast('Log in to share this trip.')
+      return
+    }
+
+    const username = shareUsername.trim()
+    const email = shareEmail.trim()
+    if (!username || !email) {
+      showToast('Enter both username and email.')
+      return
+    }
+
+    setShareBusy(true)
+    try {
+      const res = await fetch(`/api/trips/${tripId}/shares`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: currentUserId,
+          username,
+          email,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(typeof data?.error === 'string' ? data.error : 'Could not share trip.')
+        return
+      }
+      setShareUsername('')
+      setShareEmail('')
+      setShareDialogOpen(false)
+      showToast(`Shared with ${data.sharedUser?.username ?? username}.`)
+    } catch (error) {
+      console.error('Share trip error:', error)
+      showToast('Could not share trip right now.')
+    } finally {
+      setShareBusy(false)
+    }
   }
 
   return (
@@ -134,7 +159,7 @@ export default function SuccessState({ planDetails, trip, onStartOver, showToast
       aria-labelledby="s4-title"
       aria-live="polite"
     >
-      <TopBar step="Done ✓" />
+      <TopBar step="Done ✓" authLabel={authLabel} onAuthClick={onAuthClick} />
 
       <div className="flex-1 flex flex-col gap-5">
 
@@ -244,11 +269,12 @@ export default function SuccessState({ planDetails, trip, onStartOver, showToast
         </div>
 
         {/* ── Share row ──────────────────────────────────────────── */}
-        <div>
+        {canShareTrip && (
+          <div>
           <p className="text-[0.68rem] font-semibold tracking-[0.1em] uppercase text-ink-faint mb-2">
             Share with the group
           </p>
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             <button
               onClick={handleCopyLink}
               className="flex items-center justify-center gap-2 px-4 py-[10px] rounded-card bg-transparent text-ink border-[1.5px] border-cream-deep font-semibold text-[0.83rem] transition-all active:scale-[0.97] hover:bg-parchment hover:border-ink-faint [-webkit-tap-highlight-color:transparent]"
@@ -257,14 +283,72 @@ export default function SuccessState({ planDetails, trip, onStartOver, showToast
               🔗 Copy Link
             </button>
             <button
-              onClick={handleShareText}
+              onClick={() => setShareDialogOpen(true)}
               className="flex items-center justify-center gap-2 px-4 py-[10px] rounded-card bg-transparent text-ink border-[1.5px] border-cream-deep font-semibold text-[0.83rem] transition-all active:scale-[0.97] hover:bg-parchment hover:border-ink-faint [-webkit-tap-highlight-color:transparent]"
-              aria-label="Share as text message"
+              aria-label="Share with a specific user"
             >
-              💬 Share Text
+              👤 Share with Sync
             </button>
           </div>
-        </div>
+          </div>
+        )}
+
+        {shareDialogOpen && (
+          <div
+            className="fixed inset-0 z-[160] bg-ink/35"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="share-trip-title"
+            onMouseDown={() => setShareDialogOpen(false)}
+          >
+            <div
+              className="absolute left-1/2 top-1/2 w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-panel border border-cream-deep bg-white p-4 shadow-float"
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h3 id="share-trip-title" className="text-[0.86rem] font-semibold tracking-[0.08em] uppercase text-ink-faint">
+                  Share Trip
+                </h3>
+                <button
+                  type="button"
+                  className="rounded-card border border-cream-deep px-2 py-1 text-[0.72rem] font-medium text-ink-mid hover:bg-parchment"
+                  onClick={() => setShareDialogOpen(false)}
+                  aria-label="Close share dialog"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={shareUsername}
+                  onChange={e => setShareUsername(e.target.value)}
+                  placeholder="Username"
+                  className="input-field"
+                  autoComplete="off"
+                />
+                <input
+                  type="email"
+                  value={shareEmail}
+                  onChange={e => setShareEmail(e.target.value)}
+                  placeholder="Email"
+                  className="input-field"
+                  autoComplete="off"
+                />
+                <button
+                  type="button"
+                  onClick={handleShareTrip}
+                  disabled={shareBusy}
+                  className="flex w-full items-center justify-center rounded-card bg-ink px-3 py-2 text-[0.8rem] font-semibold text-white transition hover:bg-[#1c1b18] disabled:opacity-60"
+                >
+                  {shareBusy ? 'Sharing…' : 'Share with user'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Start over */}
         <button

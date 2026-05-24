@@ -9,13 +9,18 @@ import TopBar from '../TopBar'
 interface Props {
   planDetails: PlanDetails
   ideas:       IdeaItem[]
-  /** JSONBin id when this sandbox is shared or opened from a share link. */
-  shareBinId: string | null
-  onShareBinId: (binId: string) => void
+  tripId: string | null
+  currentUserId?: string | null
+  canShareSandbox?: boolean
+  canGenerateItinerary?: boolean
+  onPersistSandbox?: () => Promise<void>
   onAddIdea:   (idea: IdeaItem) => void
+  onRemoveIdea: (ideaId: string) => void
   onTripReady: (trip: GeneratedTrip) => void
   onGenerate:  () => void
   showToast:   (msg: string) => void
+  authLabel?: string
+  onAuthClick?: () => void
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
@@ -40,7 +45,7 @@ function CardLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function IdeaCard({ idea }: { idea: IdeaItem }) {
+function IdeaCard({ idea, onRemove }: { idea: IdeaItem; onRemove: (ideaId: string) => void }) {
   return (
     <div
       className="bg-white border border-cream-deep rounded-card px-3.5 py-[11px] flex items-start gap-2.5 shadow-soft animate-pop-in"
@@ -75,6 +80,14 @@ function IdeaCard({ idea }: { idea: IdeaItem }) {
           )}
         </div>
       </div>
+      <button
+        type="button"
+        onClick={() => onRemove(idea.id)}
+        className="rounded-card border border-cream-deep px-2 py-1 text-[0.68rem] font-semibold text-ink-mid hover:bg-parchment"
+        aria-label="Remove idea"
+      >
+        Remove
+      </button>
     </div>
   )
 }
@@ -95,23 +108,21 @@ const GENERATE_PHRASES = [
 
 // ── Screen component ────────────────────────────────────────────────────────
 
-function shareUrlForBin(binId: string): string {
-  if (typeof window === 'undefined') return ''
-  const u = new URL(window.location.href)
-  u.search = ''
-  u.searchParams.set('share', binId)
-  return u.toString()
-}
-
 export default function IdeaSandbox({
   planDetails,
   ideas,
-  shareBinId,
-  onShareBinId,
+  tripId,
+  currentUserId,
+  canShareSandbox = true,
+  canGenerateItinerary = true,
+  onPersistSandbox,
   onAddIdea,
+  onRemoveIdea,
   onTripReady,
   onGenerate,
   showToast,
+  authLabel,
+  onAuthClick,
 }: Props) {
   const [ideaText,        setIdeaText]        = useState('')
   const [priority,        setPriority]        = useState(3)
@@ -120,6 +131,9 @@ export default function IdeaSandbox({
   const [isGenerating, setIsGenerating] = useState(false)
   const [genLabel,     setGenLabel]     = useState(GENERATE_PHRASES[0])
   const [shareBusy, setShareBusy] = useState(false)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [shareUsername, setShareUsername] = useState('')
+  const [shareEmail, setShareEmail] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const generateInFlightRef = useRef(false)
 
@@ -162,58 +176,55 @@ export default function IdeaSandbox({
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAdd() }
   }
 
-  const copyShareLink = async (url: string) => {
-    try {
-      await navigator.clipboard.writeText(url)
-      showToast('Share link copied to clipboard!')
-    } catch {
-      showToast('Could not copy automatically — copy the link from the address bar.')
+  const handleShareSandbox = async () => {
+    if (!canShareSandbox) {
+      showToast('Only the trip owner can share this sandbox.')
+      return
     }
-  }
+    if (!tripId) {
+      showToast('Create the plan first before sharing.')
+      return
+    }
+    if (!currentUserId) {
+      showToast('Log in to share this sandbox.')
+      return
+    }
 
-  const handleCreateShare = async () => {
+    const username = shareUsername.trim()
+    const email = shareEmail.trim()
+    if (!username || !email) {
+      showToast('Enter both username and email.')
+      return
+    }
+
     if (shareBusy || isGenerating) return
     setShareBusy(true)
     try {
-      const res = await fetch('/api/share-bin', {
+      if (onPersistSandbox) {
+        await onPersistSandbox()
+      }
+
+      const res = await fetch(`/api/trips/${tripId}/shares`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planDetails, ideas }),
-      })
-      const data = await res.json()
-      if (!res.ok || typeof data.binId !== 'string') {
-        showToast(typeof data.error === 'string' ? data.error : 'Could not create share link.')
-        return
-      }
-      onShareBinId(data.binId)
-      const url = typeof data.shareUrl === 'string' ? data.shareUrl : shareUrlForBin(data.binId)
-      await copyShareLink(url)
-    } catch (e) {
-      console.error('Create share error:', e)
-      showToast('Could not reach the sharing service.')
-    } finally {
-      setShareBusy(false)
-    }
-  }
-
-  const handlePushShare = async () => {
-    if (!shareBinId || shareBusy || isGenerating) return
-    setShareBusy(true)
-    try {
-      const res = await fetch('/api/share-bin', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ binId: shareBinId, planDetails, ideas }),
+        body: JSON.stringify({
+          userId: currentUserId,
+          username,
+          email,
+        }),
       })
       const data = await res.json()
       if (!res.ok) {
-        showToast(typeof data.error === 'string' ? data.error : 'Could not update shared board.')
+        showToast(typeof data.error === 'string' ? data.error : 'Could not share sandbox.')
         return
       }
-      showToast('Shared board updated — others can refresh to see changes.')
+      setShareUsername('')
+      setShareEmail('')
+      setShareDialogOpen(false)
+      showToast(`Sandbox shared with ${data.sharedUser?.username ?? username}.`)
     } catch (e) {
-      console.error('Push share error:', e)
-      showToast('Could not reach the sharing service.')
+      console.error('Share sandbox error:', e)
+      showToast('Could not share sandbox right now.')
     } finally {
       setShareBusy(false)
     }
@@ -221,11 +232,18 @@ export default function IdeaSandbox({
 
   /** Returns true only when the API returns a usable itinerary (so the app can advance). */
   const handleGenerateTrip = async (): Promise<boolean> => {
+    if (!canGenerateItinerary) {
+      showToast('Ask owner to create itinerary.')
+      return false
+    }
     if (isGenerating || generateInFlightRef.current) return false
-    const hasBoard = ideas.length > 0
-    const hasDraft = ideaText.trim().length > 0
-    if (!hasBoard && !hasDraft) {
-      showToast('Add at least one idea (or finish typing in the form) first.')
+    if (ideas.length === 0) {
+      showToast('Add at least one idea to the sandbox first.')
+      return false
+    }
+
+    const confirmed = window.confirm('Create itinerary now from the current sandbox ideas?')
+    if (!confirmed) {
       return false
     }
 
@@ -301,7 +319,7 @@ export default function IdeaSandbox({
         </div>
       )}
 
-      <TopBar step="Step 1 / 3" />
+      <TopBar step="Step 1 / 3" authLabel={authLabel} onAuthClick={onAuthClick} />
 
       <h2
         id="s2-title"
@@ -334,7 +352,7 @@ export default function IdeaSandbox({
         ))}
       </div>
 
-      {/* ── Share / collaborate (JSONBin) ─────────────────────── */}
+      {/* ── Share / collaborate (Sync) ─────────────────────────── */}
       <div
         className="bg-white border border-cream-deep rounded-panel px-4 py-3 shadow-soft mb-[18px]"
         role="region"
@@ -344,45 +362,82 @@ export default function IdeaSandbox({
           Group collaboration
         </p>
         <p className="text-[0.78rem] text-ink-mid leading-relaxed mb-3">
-          Create a link so others can open this trip and add ideas on the board. Save updates to the cloud when your group adds or changes ideas.
+          Share this sandbox with another Sync user so you can build ideas together in one place.
         </p>
         <div className="flex flex-col gap-2">
-          {!shareBinId ? (
-            <button
-              type="button"
-              onClick={handleCreateShare}
-              disabled={isGenerating || shareBusy}
-              className="flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-white border border-cream-deep text-ink font-semibold text-[0.83rem] shadow-soft transition-all active:scale-[0.98] hover:bg-parchment disabled:opacity-50 disabled:pointer-events-none"
-            >
-              {shareBusy ? 'Creating link…' : '🔗 Create share link'}
-            </button>
-          ) : (
-            <>
-              <div className="flex flex-col sm:flex-row gap-2">
-                <button
-                  type="button"
-                  onClick={() => void copyShareLink(shareUrlForBin(shareBinId))}
-                  disabled={isGenerating || shareBusy}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-white border border-cream-deep text-ink font-semibold text-[0.83rem] shadow-soft transition-all active:scale-[0.98] hover:bg-parchment disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  Copy link
-                </button>
-                <button
-                  type="button"
-                  onClick={handlePushShare}
-                  disabled={isGenerating || shareBusy}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-sage text-white font-semibold text-[0.83rem] shadow-[0_2px_10px_rgba(122,158,142,0.2)] transition-all active:scale-[0.97] hover:bg-[#6a8e7e] disabled:opacity-50 disabled:pointer-events-none"
-                >
-                  {shareBusy ? 'Saving…' : 'Save to shared board'}
-                </button>
-              </div>
-              <p className="text-[0.7rem] text-ink-faint break-all leading-snug">
-                {shareUrlForBin(shareBinId)}
-              </p>
-            </>
+          <button
+            type="button"
+            onClick={() => setShareDialogOpen(true)}
+            disabled={isGenerating || shareBusy || !canShareSandbox || !tripId}
+            className="flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-white border border-cream-deep text-ink font-semibold text-[0.83rem] shadow-soft transition-all active:scale-[0.98] hover:bg-parchment disabled:opacity-50 disabled:pointer-events-none"
+          >
+            👤 Share within Sync
+          </button>
+          {!canShareSandbox && (
+            <p className="text-[0.72rem] text-ink-faint">
+              This sandbox was shared with you. Only the owner can share it with more users.
+            </p>
           )}
         </div>
       </div>
+
+      {shareDialogOpen && (
+        <div className="fixed inset-0 z-[130] bg-ink/35" role="dialog" aria-modal="true" aria-labelledby="sandbox-share-title" onMouseDown={() => setShareDialogOpen(false)}>
+          <div
+            className="absolute left-1/2 top-1/2 w-[min(360px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-panel border border-cream-deep bg-white p-4 shadow-float"
+            onMouseDown={e => e.stopPropagation()}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <h3 id="sandbox-share-title" className="text-[0.86rem] font-semibold tracking-[0.08em] uppercase text-ink-faint">
+                Share Sandbox
+              </h3>
+              <button
+                type="button"
+                className="rounded-card border border-cream-deep px-2 py-1 text-[0.72rem] font-medium text-ink-mid hover:bg-parchment"
+                onClick={() => setShareDialogOpen(false)}
+                aria-label="Close sandbox share dialog"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="rounded-card border border-cream-deep bg-parchment px-3 py-3">
+              <p className="text-[0.72rem] font-semibold tracking-[0.08em] uppercase text-ink-faint">
+                Share with a Sync user
+              </p>
+
+              <div className="mt-3 space-y-2">
+                <input
+                  type="text"
+                  value={shareUsername}
+                  onChange={e => setShareUsername(e.target.value)}
+                  placeholder="Username"
+                  className="input-field"
+                  autoComplete="username"
+                />
+                <input
+                  type="email"
+                  value={shareEmail}
+                  onChange={e => setShareEmail(e.target.value)}
+                  placeholder="Email"
+                  className="input-field"
+                  autoComplete="email"
+                />
+                <button
+                  type="button"
+                  onClick={handleShareSandbox}
+                  disabled={shareBusy || isGenerating}
+                  className="flex w-full items-center justify-center rounded-card bg-ink px-3 py-2 text-[0.8rem] font-semibold text-white transition hover:bg-[#1c1b18] disabled:opacity-60"
+                  aria-label="Share sandbox"
+                >
+                  {shareBusy ? 'Sharing…' : 'Share sandbox'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Group Idea Board ──────────────────────────────────── */}
       <p className="text-[0.68rem] font-semibold tracking-[0.1em] uppercase text-ink-faint mb-2">
@@ -406,7 +461,7 @@ export default function IdeaSandbox({
             Ideas from your group will appear here
           </div>
         ) : (
-          ideas.map(idea => <IdeaCard key={idea.id} idea={idea} />)
+          ideas.map(idea => <IdeaCard key={idea.id} idea={idea} onRemove={onRemoveIdea} />)
         )}
       </div>
 
@@ -519,14 +574,20 @@ export default function IdeaSandbox({
             const ok = await handleGenerateTrip()
             if (ok) onGenerate()
           }}
-          disabled={isGenerating}
+          disabled={isGenerating || !canGenerateItinerary}
           className="btn-primary bg-ink text-white shadow-[0_2px_10px_rgba(44,43,40,0.16)] hover:bg-[#1c1b18] disabled:opacity-60 disabled:pointer-events-none"
           aria-label="Generate AI itinerary"
         >
-          <span aria-hidden="true">✦</span> {isGenerating ? 'Generating…' : 'Generate Itinerary (AI)'}
+          {canGenerateItinerary ? (
+            <>
+              <span aria-hidden="true">✦</span> {isGenerating ? 'Generating…' : 'Generate Itinerary (AI)'}
+            </>
+          ) : (
+            'Ask owner to create itinerary'
+          )}
         </button>
         <p className="text-center text-[0.73rem] text-ink-faint mt-[7px]">
-          {genHint(ideas.length)}
+          {canGenerateItinerary ? genHint(ideas.length) : 'You can still add ideas to help shape the final plan.'}
         </p>
       </div>
     </section>

@@ -1,0 +1,147 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-06-04T00:00:00Z",
+  "title": "Design System: TravelSync",
+  "extensions": {
+    "colorMeta": {
+      "sage":        { "role": "primary",   "displayName": "Prepared Sage",   "canonical": "#7A9E8E", "tonalRamp": ["#0e2420","#1a3d36","#2b5a4f","#3d7668","#538979","#7A9E8E","#A8C5B7","#EDF3F0"] },
+      "sage-light":  { "role": "primary",   "displayName": "Sage Mist",       "canonical": "#A8C5B7", "tonalRamp": ["#0e2420","#1a3d36","#2b5a4f","#3d7668","#538979","#7A9E8E","#A8C5B7","#EDF3F0"] },
+      "sage-dim":    { "role": "primary",   "displayName": "Sage Field",      "canonical": "#EDF3F0", "tonalRamp": ["#0e2420","#1a3d36","#2b5a4f","#3d7668","#538979","#7A9E8E","#A8C5B7","#EDF3F0"] },
+      "sand":        { "role": "secondary", "displayName": "Warm Sand",       "canonical": "#C4A882", "tonalRamp": ["#1e1508","#3d2e10","#5e491b","#7f6428","#9d7d38","#C4A882","#EFE5D6","#FAF5ED"] },
+      "sand-light":  { "role": "secondary", "displayName": "Sand Wash",       "canonical": "#EFE5D6", "tonalRamp": ["#1e1508","#3d2e10","#5e491b","#7f6428","#9d7d38","#C4A882","#EFE5D6","#FAF5ED"] },
+      "terra":       { "role": "tertiary",  "displayName": "Terracotta",      "canonical": "#B8714E", "tonalRamp": ["#1a0a04","#371509","#58230f","#7a3319","#9b4a2b","#B8714E","#F0E0D6","#FDF5F2"] },
+      "terra-light": { "role": "tertiary",  "displayName": "Terra Blush",     "canonical": "#F0E0D6", "tonalRamp": ["#1a0a04","#371509","#58230f","#7a3319","#9b4a2b","#B8714E","#F0E0D6","#FDF5F2"] },
+      "cream":       { "role": "neutral",   "displayName": "Cream",           "canonical": "#F7F5F0", "tonalRamp": ["#1a1917","#2C2B28","#424039","#5C5A56","#787570","#9B9892","#EDEAE2","#F7F5F0"] },
+      "cream-deep":  { "role": "neutral",   "displayName": "Deep Cream",      "canonical": "#EDEAE2", "tonalRamp": ["#1a1917","#2C2B28","#424039","#5C5A56","#787570","#9B9892","#EDEAE2","#F7F5F0"] },
+      "parchment":   { "role": "neutral",   "displayName": "Parchment",       "canonical": "#FAF8F4", "tonalRamp": ["#1a1917","#2C2B28","#424039","#5C5A56","#787570","#9B9892","#EDEAE2","#FAF8F4"] },
+      "ink":         { "role": "neutral",   "displayName": "Ink",             "canonical": "#2C2B28", "tonalRamp": ["#1a1917","#2C2B28","#424039","#5C5A56","#787570","#9B9892","#EDEAE2","#F7F5F0"] },
+      "ink-mid":     { "role": "neutral",   "displayName": "Mid Ink",         "canonical": "#5C5A56", "tonalRamp": ["#1a1917","#2C2B28","#424039","#5C5A56","#787570","#9B9892","#EDEAE2","#F7F5F0"] },
+      "ink-faint":   { "role": "neutral",   "displayName": "Faint Ink",       "canonical": "#9B9892", "tonalRamp": ["#1a1917","#2C2B28","#424039","#5C5A56","#787570","#9B9892","#EDEAE2","#F7F5F0"] }
+    },
+    "typographyMeta": {
+      "display":  { "displayName": "Display",  "purpose": "Screen-level headings and major section titles. DM Serif only." },
+      "headline": { "displayName": "Headline", "purpose": "Component headers, panel titles, dialog names. Outfit semibold." },
+      "body":     { "displayName": "Body",     "purpose": "Descriptive and instructional text. Outfit regular." },
+      "label":    { "displayName": "Label",    "purpose": "Section markers, badge text, metadata categories. Uppercase, tracked, short." }
+    },
+    "shadows": [
+      { "name": "soft",  "value": "0 1px 4px rgba(44,43,40,.06), 0 2px 12px rgba(44,43,40,.04)", "purpose": "Resting card lift. Second choice after tonal layering." },
+      { "name": "float", "value": "0 4px 16px rgba(44,43,40,.08), 0 1px 4px rgba(44,43,40,.04)", "purpose": "Hover state and open panel elevation." }
+    ],
+    "motion": [
+      { "name": "standard",   "value": "cubic-bezier(.4,0,.2,1)",     "duration": "260ms", "purpose": "Default state transition easing." },
+      { "name": "spring-pop", "value": "cubic-bezier(.34,1.56,.64,1)","duration": "220ms", "purpose": "Modal/toast entrance (scale + fade)." },
+      { "name": "ease-out",   "value": "cubic-bezier(.4,0,.2,1)",     "duration": "340ms", "purpose": "Page/screen transition (fadeUp: translate + fade)." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "btn-primary",
+      "description": "Main CTA. Warm sand fill, inviting rather than commanding. Full-width on mobile.",
+      "html": "<button class=\"ds-btn-primary\">Plan this trip</button>",
+      "css": ".ds-btn-primary { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 15px 22px; border-radius: 16px; background: #C4A882; color: #2C2B28; font-family: Outfit, system-ui, sans-serif; font-size: 0.93rem; font-weight: 600; border: none; cursor: pointer; transition: background 260ms cubic-bezier(.4,0,.2,1), transform 260ms cubic-bezier(.4,0,.2,1); -webkit-tap-highlight-color: transparent; } .ds-btn-primary:hover { background: #b89a76; } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:focus-visible { outline: 2px solid #7A9E8E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "btn-ghost",
+      "description": "Secondary or dismiss action. Parchment background, ink-mid text. Less prominent.",
+      "html": "<button class=\"ds-btn-ghost\">Cancel</button>",
+      "css": ".ds-btn-ghost { display: flex; align-items: center; justify-content: center; padding: 8px 12px; border-radius: 10px; background: #FAF8F4; color: #5C5A56; font-family: Outfit, system-ui, sans-serif; font-size: 0.8rem; font-weight: 600; border: 1px solid #EDEAE2; cursor: pointer; transition: background 260ms cubic-bezier(.4,0,.2,1); } .ds-btn-ghost:hover { background: #F0EDE6; } .ds-btn-ghost:active { transform: scale(0.97); } .ds-btn-ghost:focus-visible { outline: 2px solid #7A9E8E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "btn-destructive",
+      "description": "Used for logout, deletion, irreversible actions. Terra text on white.",
+      "html": "<button class=\"ds-btn-destructive\">Log out</button>",
+      "css": ".ds-btn-destructive { display: flex; align-items: center; justify-content: center; width: 100%; padding: 8px 12px; border-radius: 10px; background: #ffffff; color: #B8714E; font-family: Outfit, system-ui, sans-serif; font-size: 0.8rem; font-weight: 600; border: 1px solid #EDEAE2; cursor: pointer; transition: background 260ms cubic-bezier(.4,0,.2,1); } .ds-btn-destructive:hover { background: #FAF8F4; } .ds-btn-destructive:focus-visible { outline: 2px solid #B8714E; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Standard form input. Parchment background, sage focus glow.",
+      "html": "<div class=\"ds-input-wrap\"><input class=\"ds-input\" type=\"text\" placeholder=\"Where are you going?\" /></div>",
+      "css": ".ds-input-wrap { width: 100%; } .ds-input { width: 100%; box-sizing: border-box; background: #FAF8F4; border: 1.5px solid #EDEAE2; border-radius: 10px; padding: 12px 14px; font-family: Outfit, system-ui, sans-serif; font-size: 0.92rem; color: #2C2B28; outline: none; transition: border-color 260ms cubic-bezier(.4,0,.2,1), box-shadow 260ms cubic-bezier(.4,0,.2,1); } .ds-input::placeholder { color: #9B9892; } .ds-input:focus { border-color: #7A9E8E; box-shadow: 0 0 0 3px rgba(122,158,142,0.13); }"
+    },
+    {
+      "name": "Textarea",
+      "kind": "input",
+      "refersTo": "input-field",
+      "description": "Multi-line idea or note input. Same base as text input, minimum 82px height.",
+      "html": "<textarea class=\"ds-textarea\" placeholder=\"Describe your ideal day...\"></textarea>",
+      "css": ".ds-textarea { width: 100%; box-sizing: border-box; background: #FAF8F4; border: 1.5px solid #EDEAE2; border-radius: 10px; padding: 12px 14px; font-family: Outfit, system-ui, sans-serif; font-size: 0.92rem; color: #2C2B28; outline: none; resize: none; min-height: 82px; line-height: 1.6; transition: border-color 260ms cubic-bezier(.4,0,.2,1), box-shadow 260ms cubic-bezier(.4,0,.2,1); } .ds-textarea::placeholder { color: #9B9892; } .ds-textarea:focus { border-color: #7A9E8E; box-shadow: 0 0 0 3px rgba(122,158,142,0.13); }"
+    },
+    {
+      "name": "Trip Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Saved trip item in the plans drawer. Shows trip name, location, date and a badge.",
+      "html": "<button class=\"ds-trip-card\"><div class=\"ds-trip-card__header\"><div><p class=\"ds-trip-card__name\">Weekend in Kyoto</p><p class=\"ds-trip-card__meta\">Japan</p></div><span class=\"ds-trip-card__badge ds-trip-card__badge--yours\">Yours</span></div><p class=\"ds-trip-card__date\">Updated Jun 3, 2026</p></button>",
+      "css": ".ds-trip-card { display: block; width: 100%; background: #ffffff; border: 1.5px solid #EDEAE2; border-radius: 16px; padding: 12px; text-align: left; cursor: pointer; box-shadow: 0 1px 4px rgba(44,43,40,.06), 0 2px 12px rgba(44,43,40,.04); transition: transform 200ms cubic-bezier(.4,0,.2,1), border-color 200ms cubic-bezier(.4,0,.2,1); } .ds-trip-card:hover { transform: translateY(-1px); border-color: #9B9892; } .ds-trip-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; } .ds-trip-card__name { font-family: Outfit, system-ui, sans-serif; font-size: 0.88rem; font-weight: 600; color: #2C2B28; margin: 0; } .ds-trip-card__meta { font-family: Outfit, system-ui, sans-serif; font-size: 0.74rem; color: #5C5A56; margin: 2px 0 0; } .ds-trip-card__badge { display: inline-flex; align-items: center; border-radius: 9999px; padding: 3px 8px; font-family: Outfit, system-ui, sans-serif; font-size: 0.65rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; } .ds-trip-card__badge--yours { background: #7A9E8E; color: #ffffff; } .ds-trip-card__badge--shared { background: #C4A882; color: #2C2B28; } .ds-trip-card__date { font-family: Outfit, system-ui, sans-serif; font-size: 0.7rem; color: #9B9892; margin: 8px 0 0; }"
+    },
+    {
+      "name": "Toast Notification",
+      "kind": "custom",
+      "refersTo": "toast",
+      "description": "System feedback: confirmations, errors, status messages. Auto-dismisses at 2.6s.",
+      "html": "<div class=\"ds-toast\">Plan created and added to your trips.</div>",
+      "css": "@keyframes ds-pop-in { from { opacity: 0; transform: scale(0.87); } to { opacity: 1; transform: scale(1); } } .ds-toast { display: inline-flex; align-items: center; padding: 10px 16px; border-radius: 16px; background: #2C2B28; color: #F7F5F0; font-family: Outfit, system-ui, sans-serif; font-size: 0.86rem; font-weight: 500; box-shadow: 0 4px 16px rgba(44,43,40,.18); animation: ds-pop-in 220ms cubic-bezier(.34,1.56,.64,1) both; max-width: 340px; } @media (prefers-reduced-motion: reduce) { .ds-toast { animation: none; } }"
+    },
+    {
+      "name": "Section Label",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "Uppercase tracking label used as a section identifier — one per UI section maximum.",
+      "html": "<p class=\"ds-section-label\">Saved Plans</p>",
+      "css": ".ds-section-label { font-family: Outfit, system-ui, sans-serif; font-size: 0.68rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: #9B9892; margin: 0; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Prepared Traveler's Notebook",
+    "overview": "TravelSync's visual language is built on quiet confidence. Typography does the primary organizational work — DM Serif for display moments, Outfit for everything operational. The interface recedes so the trip can feel real. Nothing decorative that doesn't earn its place; every element either clarifies a decision or confirms an action.\n\nDepth is tonal, not shadowed. Surfaces layer from cream to parchment to white, creating a hierarchy of planes without architectural shadow weight. Sage green acts as the system's trusted marker: used sparingly, it always means 'this matters.' Sand and terra carry human warmth — the invitation to act, the alert that something needs attention.\n\nThe system explicitly rejects: generic SaaS hero aesthetics (navy gradients, metric grids, illustration-heavy landing zones), AI product glass/dark treatments (glassmorphism, purple gradients, 'powered by AI' as decoration), and booking-site density (star ratings, compressed card grids, stock photography).",
+    "keyCharacteristics": [
+      "Typography-led hierarchy: DM Serif announces, Outfit operates",
+      "Tonal layering: cream → parchment → white as the depth axis",
+      "Sage as signal, not fill: discipline in primary accent usage",
+      "Sand and terra for warmth and human action moments",
+      "Motion is earned: animations on confirmation, transition, and empty states only"
+    ],
+    "rules": [
+      { "name": "The One Marker Rule", "body": "Prepared Sage (#7A9E8E) appears on ≤15% of any given screen. It is a signal, not a surface color. The moment it covers more area, it loses its authority.", "section": "colors" },
+      { "name": "The Warmth-Through-Action Rule", "body": "Warm Sand (#C4A882) appears on CTAs and affirming moments — not on decorative elements or as an ambient fill. Warmth is earned by what it accompanies.", "section": "colors" },
+      { "name": "The Display-Earns-Its-Place Rule", "body": "DM Serif Display appears only on screen-level headings and major content titles. Prohibited on UI labels, tab text, badge copy, button labels, and navigational elements.", "section": "typography" },
+      { "name": "The Label Ceiling Rule", "body": "Uppercase tracking labels are limited to one per discrete UI section, on identifiers of 4 words or fewer. They are identifiers, not decoration.", "section": "typography" },
+      { "name": "The Flat-by-Default Rule", "body": "Surfaces are flat at rest. The presence of a shadow means something is in a state — hovered, open, elevated. A permanent resting shadow is decorative elevation, which is prohibited.", "section": "elevation" },
+      { "name": "The Tonal-First Rule", "body": "Before reaching for a shadow, ask whether a background shift (cream → parchment, or parchment → white) achieves the same depth. Shadows are the second tool, not the first.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Prepared Sage (#7A9E8E) as a signal — focus rings, selected states, active indicators — never as a large fill.",
+      "Do establish depth through tonal layering: cream (page) → parchment (card) → white (elevated dialog). Reach for shadows second.",
+      "Do use DM Serif Display exclusively for screen-level headings.",
+      "Do limit uppercase tracked labels to one per UI section, 4 words or fewer.",
+      "Do ensure all body text hits ≥4.5:1 contrast against its background.",
+      "Do pair every animation with a prefers-reduced-motion alternative.",
+      "Do use Warm Sand (#C4A882) on CTAs and affirming moments — an invitation, not a command."
+    ],
+    "donts": [
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe on cards or callouts.",
+      "Don't use gradient text (background-clip: text + gradient). Use a solid color.",
+      "Don't use glassmorphism decoratively. The side panel backdrop-blur is the one intentional exception.",
+      "Don't build SaaS-style hero zones: navy gradients, metric grids, hero illustrations, or gradient CTAs.",
+      "Don't use purple gradients, dark glassmorphism, or 'powered by AI' as a design element.",
+      "Don't build dense booking-site layouts: compressed card grids with star ratings, stock photography collages.",
+      "Don't add an uppercase tracking eyebrow above every section heading — one per section, identifiers only.",
+      "Don't place ink-faint (#9B9892) on actionable or meaningful text — approved for placeholder hints only.",
+      "Don't animate CSS layout properties (width, height, top, left, padding). Animate transform and opacity only."
+    ]
+  }
+}

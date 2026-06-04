@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { PlanDetails, IdeaItem, TimeCommitment } from '../../types'
 import { buildOrderData, isGeneratedTrip, type GeneratedTrip } from '../../lib/buildTripOrder'
 import { getIdeaIcon } from '../../lib/utils'
@@ -21,6 +21,7 @@ interface Props {
   showToast:   (msg: string) => void
   authLabel?: string
   onAuthClick?: () => void
+  currentTrip?: GeneratedTrip | null
 }
 
 // ── Internal helpers ────────────────────────────────────────────────────────
@@ -45,7 +46,18 @@ function CardLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
+function normalizeUrl(input: string): string {
+  const raw = input.trim()
+  if (!raw) return ''
+  if (/^https?:\/\//i.test(raw)) return raw
+  return `https://${raw}`
+}
+
 function IdeaCard({ idea, onRemove }: { idea: IdeaItem; onRemove: (ideaId: string) => void }) {
+  const mustInclude = idea.priorityEnabled === false
+  const hasEventTime = Boolean(idea.eventTime?.trim())
+  const safeUrl = idea.eventLink?.trim() ? normalizeUrl(idea.eventLink) : ''
+
   return (
     <div
       className="bg-white border border-cream-deep rounded-card px-3.5 py-[11px] flex items-start gap-2.5 shadow-soft animate-pop-in"
@@ -57,18 +69,42 @@ function IdeaCard({ idea, onRemove }: { idea: IdeaItem; onRemove: (ideaId: strin
       <div className="flex-1">
         <p className="text-[0.88rem] text-ink leading-[1.45] break-words">{idea.text}</p>
         <div className="flex gap-1.5 flex-wrap mt-1.5">
+          {idea.isCustomEvent && (
+            <span
+              className="text-[0.68rem] font-semibold px-2 py-[2px] rounded-full bg-[#e5ecff] text-[#2b4da3]"
+              aria-label="Custom event"
+            >
+              Event
+            </span>
+          )}
           <span
             className="text-[0.68rem] font-semibold px-2 py-[2px] rounded-full bg-sand-light text-sand"
             aria-label={`Priority ${idea.priority} of 5`}
           >
             P{idea.priority}/5
           </span>
+          {mustInclude && (
+            <span
+              className="text-[0.68rem] font-semibold px-2 py-[2px] rounded-full bg-[#e8f4d8] text-[#4f6d2a]"
+              aria-label="Must include in itinerary"
+            >
+              Must include
+            </span>
+          )}
           <span
             className="text-[0.68rem] font-semibold px-2 py-[2px] rounded-full bg-sage-dim text-sage"
             aria-label={`Time: ${TIME_OPTIONS.find(o => o.value === idea.timeCommitment)?.label ?? idea.timeCommitment}`}
           >
             {TIME_OPTIONS.find(o => o.value === idea.timeCommitment)?.short ?? idea.timeCommitment}
           </span>
+          {hasEventTime && (
+            <span
+              className="text-[0.68rem] font-semibold px-2 py-[2px] rounded-full bg-[#f0ecff] text-[#5f4aa6]"
+              aria-label={`Event time ${idea.eventTime} with ${idea.eventTimeFlexible === false ? 'fixed' : 'flexible'} scheduling`}
+            >
+              {idea.eventTimeFlexible === false ? 'Fixed time' : 'Flexible time'}: {idea.eventTime}
+            </span>
+          )}
           {/* Dealbreaker chip */}
           {idea.dealbreaker && (
             <span
@@ -79,6 +115,16 @@ function IdeaCard({ idea, onRemove }: { idea: IdeaItem; onRemove: (ideaId: strin
             </span>
           )}
         </div>
+        {(idea.eventLocation?.trim() || safeUrl) && (
+          <div className="mt-1.5 text-[0.72rem] text-ink-mid leading-relaxed space-y-1">
+            {idea.eventLocation?.trim() && <p>Location: {idea.eventLocation.trim()}</p>}
+            {safeUrl && (
+              <a href={safeUrl} target="_blank" rel="noreferrer" className="underline text-[#2b4da3] break-all">
+                {safeUrl}
+              </a>
+            )}
+          </div>
+        )}
       </div>
       <button
         type="button"
@@ -123,17 +169,26 @@ export default function IdeaSandbox({
   showToast,
   authLabel,
   onAuthClick,
+  currentTrip,
 }: Props) {
   const [ideaText,        setIdeaText]        = useState('')
   const [priority,        setPriority]        = useState(3)
   const [timeCommitment,  setTimeCommitment]  = useState<TimeCommitment>('regular')
   const [dealbreaker,     setDealbreaker]     = useState('')
+  const [isCustomEvent,   setIsCustomEvent]   = useState(false)
+  const [eventLink,       setEventLink]       = useState('')
+  const [eventLocation,   setEventLocation]   = useState('')
+  const [eventTime,       setEventTime]       = useState('')
+  const [eventTimeFlexible, setEventTimeFlexible] = useState(true)
+  const [priorityEnabled, setPriorityEnabled] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
   const [genLabel,     setGenLabel]     = useState(GENERATE_PHRASES[0])
   const [shareBusy, setShareBusy] = useState(false)
   const [shareDialogOpen, setShareDialogOpen] = useState(false)
   const [shareUsername, setShareUsername] = useState('')
   const [shareEmail, setShareEmail] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [copyLabel, setCopyLabel] = useState('Copy as text')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const generateInFlightRef = useRef(false)
 
@@ -164,9 +219,21 @@ export default function IdeaSandbox({
       priority,
       timeCommitment,
       dealbreaker:    dealbreaker.trim(),
+      isCustomEvent,
+      eventLink: eventLink.trim(),
+      eventLocation: eventLocation.trim(),
+      eventTime: eventTime.trim(),
+      eventTimeFlexible,
+      priorityEnabled,
     })
     setIdeaText('')
     setDealbreaker('')
+    setEventLink('')
+    setEventLocation('')
+    setEventTime('')
+    setEventTimeFlexible(true)
+    setPriorityEnabled(true)
+    setIsCustomEvent(false)
     textareaRef.current?.focus()
   }
 
@@ -230,6 +297,30 @@ export default function IdeaSandbox({
     }
   }
 
+  const handleCopyTrip = useCallback(async () => {
+    if (!currentTrip) { showToast('No itinerary to copy.'); return }
+    const lines: string[] = [currentTrip.tripName, '']
+    for (const day of currentTrip.itinerary) {
+      lines.push(`Day ${day.day}${day.theme ? ` — ${day.theme}` : ''}`)
+      for (const act of day.activities) {
+        lines.push(`  ${act.time}: ${act.name}`)
+        if (act.description) lines.push(`    ${act.description}`)
+        if (act.tags?.length) lines.push(`    [${act.tags.join(', ')}]`)
+      }
+      lines.push('')
+    }
+    if (currentTrip.harmonyPlan?.note) {
+      lines.push(`Group note: ${currentTrip.harmonyPlan.note}`)
+    }
+    try {
+      await navigator.clipboard.writeText(lines.join('\n'))
+      setCopyLabel('Copied!')
+      setTimeout(() => setCopyLabel('Copy as text'), 2000)
+    } catch {
+      showToast('Could not copy to clipboard.')
+    }
+  }, [currentTrip, showToast])
+
   /** Returns true only when the API returns a usable itinerary (so the app can advance). */
   const handleGenerateTrip = async (): Promise<boolean> => {
     if (!canGenerateItinerary) {
@@ -242,16 +333,23 @@ export default function IdeaSandbox({
       return false
     }
 
-    const confirmed = window.confirm('Create itinerary now from the current sandbox ideas?')
-    if (!confirmed) {
-      return false
-    }
+    setConfirmOpen(true)
+    return false // actual generation starts from confirmAndGenerate
+  }
 
+  const confirmAndGenerate = async () => {
+    setConfirmOpen(false)
     const orderData = buildOrderData(planDetails, ideas, {
       text: ideaText,
       priority,
       timeCommitment,
       dealbreaker,
+      isCustomEvent,
+      eventLink,
+      eventLocation,
+      eventTime,
+      eventTimeFlexible,
+      priorityEnabled,
     })
 
     generateInFlightRef.current = true
@@ -268,15 +366,14 @@ export default function IdeaSandbox({
       const tripData = await response.json()
       if (!response.ok || tripData?.error || !isGeneratedTrip(tripData)) {
         showToast(typeof tripData?.error === 'string' ? tripData.error : 'Failed to generate trip. Please try again.')
-        return false
+        return
       }
       onTripReady(tripData)
       succeeded = true
-      return true
+      onGenerate()
     } catch (error) {
       console.error('Generate trip error:', error)
       showToast('Could not reach the trip planner. Try again.')
-      return false
     } finally {
       if (!succeeded) {
         generateInFlightRef.current = false
@@ -365,14 +462,25 @@ export default function IdeaSandbox({
           Share this sandbox with another Sync user so you can build ideas together in one place.
         </p>
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
-            onClick={() => setShareDialogOpen(true)}
-            disabled={isGenerating || shareBusy || !canShareSandbox || !tripId}
-            className="flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-white border border-cream-deep text-ink font-semibold text-[0.83rem] shadow-soft transition-all active:scale-[0.98] hover:bg-parchment disabled:opacity-50 disabled:pointer-events-none"
-          >
-            👤 Share within Sync
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setShareDialogOpen(true)}
+              disabled={isGenerating || shareBusy || !canShareSandbox || !tripId}
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-white border border-cream-deep text-ink font-semibold text-[0.83rem] shadow-soft transition-all active:scale-[0.98] hover:bg-parchment disabled:opacity-50 disabled:pointer-events-none"
+            >
+              👤 Share within Sync
+            </button>
+            <button
+              type="button"
+              onClick={() => { void handleCopyTrip() }}
+              disabled={!currentTrip}
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-[10px] rounded-card bg-white border border-cream-deep text-ink font-semibold text-[0.83rem] shadow-soft transition-all active:scale-[0.98] hover:bg-parchment disabled:opacity-50 disabled:pointer-events-none"
+              title={currentTrip ? 'Copy itinerary as readable text' : 'Generate an itinerary first'}
+            >
+              📋 {copyLabel}
+            </button>
+          </div>
           {!canShareSandbox && (
             <p className="text-[0.72rem] text-ink-faint">
               This sandbox was shared with you. Only the owner can share it with more users.
@@ -469,6 +577,36 @@ export default function IdeaSandbox({
       <div className="bg-white border border-cream-deep rounded-panel p-[18px] shadow-soft mb-[14px]">
         <CardLabel>Add Your Idea</CardLabel>
 
+        <div className="mb-[13px]">
+          {!isCustomEvent ? (
+            <button
+              type="button"
+              onClick={() => setIsCustomEvent(true)}
+              disabled={isGenerating}
+              className="w-full flex items-center justify-center gap-2 px-4 py-[9px] rounded-card border border-dashed border-cream-deep text-[0.8rem] font-semibold text-ink-mid hover:bg-parchment transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
+            >
+              📌 Add as custom event
+            </button>
+          ) : (
+            <div className="rounded-card border border-[#c5d4ff] bg-[#f0f4ff] px-3 py-2.5 animate-pop-in">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <span className="text-[0.78rem] font-semibold text-[#2b4da3]">📌 Custom event</span>
+                <button
+                  type="button"
+                  onClick={() => { setIsCustomEvent(false); setEventLink(''); setEventLocation(''); setEventTime(''); setEventTimeFlexible(true); setPriorityEnabled(true) }}
+                  disabled={isGenerating}
+                  className="text-[0.7rem] font-semibold text-ink-mid underline hover:text-ink disabled:opacity-50"
+                >
+                  Remove custom event
+                </button>
+              </div>
+              <p className="text-[0.7rem] text-[#4f6d9e]">
+                Go back to AI-generated event — AI picks the best time and format automatically.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Idea text */}
         <div className="mb-[13px]">
           <label htmlFor="inp-idea" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
@@ -490,7 +628,7 @@ export default function IdeaSandbox({
         <div className="mb-[13px]">
           <div className="flex items-center justify-between gap-2 mb-1.5">
             <label htmlFor="inp-priority" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid">
-              Priority
+              Priority {isCustomEvent && !priorityEnabled ? '— priority logic off, event will be included' : ''}
             </label>
             <span className="text-[0.72rem] font-medium text-ink-mid tabular-nums" id="priority-hint">
               {priority}/5 — {PRIORITY_HINTS[priority]}
@@ -504,7 +642,7 @@ export default function IdeaSandbox({
             step={1}
             value={priority}
             onChange={e => setPriority(Number(e.target.value))}
-            disabled={isGenerating}
+            disabled={isGenerating || (isCustomEvent && !priorityEnabled)}
             aria-valuemin={1}
             aria-valuemax={5}
             aria-valuenow={priority}
@@ -513,6 +651,26 @@ export default function IdeaSandbox({
             className="w-full h-2 rounded-full appearance-none bg-cream-deep cursor-pointer disabled:opacity-50 disabled:pointer-events-none accent-[#7A9E8E]"
           />
         </div>
+
+        {isCustomEvent && (
+          <div className="mb-[13px] rounded-card border border-cream-deep px-3 py-2.5 bg-parchment">
+            <label className="flex items-center justify-between gap-3">
+              <span className="text-[0.78rem] font-semibold text-ink-mid">Use priority logic</span>
+              <input
+                type="checkbox"
+                checked={priorityEnabled}
+                onChange={e => setPriorityEnabled(e.target.checked)}
+                disabled={isGenerating}
+                aria-label="Use priority logic for this custom event"
+              />
+            </label>
+            <p className="text-[0.7rem] text-ink-faint mt-1">
+              {priorityEnabled
+                ? 'AI weighs this event by the priority slider above.'
+                : 'Priority logic off — this event will always be included in the itinerary.'}
+            </p>
+          </div>
+        )}
 
         {/* Time commitment + Dealbreaker */}
         <div className="grid grid-cols-2 gap-2.5">
@@ -552,6 +710,77 @@ export default function IdeaSandbox({
           </div>
         </div>
 
+        {isCustomEvent && (
+          <div className="mt-[12px] space-y-2.5">
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label htmlFor="inp-event-location" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
+                  Event location
+                </label>
+                <input
+                  id="inp-event-location"
+                  type="text"
+                  value={eventLocation}
+                  onChange={e => setEventLocation(e.target.value)}
+                  disabled={isGenerating}
+                  placeholder="e.g. ByWard Market"
+                  maxLength={80}
+                  className="input-field"
+                />
+              </div>
+              <div>
+                <label htmlFor="inp-event-time" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
+                  Event time (optional)
+                </label>
+                <input
+                  id="inp-event-time"
+                  type="text"
+                  value={eventTime}
+                  onChange={e => setEventTime(e.target.value)}
+                  disabled={isGenerating}
+                  placeholder="e.g. 2:00 PM"
+                  maxLength={40}
+                  className="input-field"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="inp-event-link" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
+                Event link (optional)
+              </label>
+              <input
+                id="inp-event-link"
+                type="url"
+                value={eventLink}
+                onChange={e => setEventLink(e.target.value)}
+                disabled={isGenerating}
+                placeholder="https://..."
+                maxLength={220}
+                className="input-field"
+              />
+            </div>
+
+            {eventTime.trim() && (
+              <div className="rounded-card border border-cream-deep px-3 py-2.5 bg-parchment">
+                <label className="flex items-center justify-between gap-3">
+                  <span className="text-[0.78rem] font-semibold text-ink-mid">Time is flexible</span>
+                  <input
+                    type="checkbox"
+                    checked={eventTimeFlexible}
+                    onChange={e => setEventTimeFlexible(e.target.checked)}
+                    disabled={isGenerating}
+                    aria-label="Allow AI to place custom event at the best time"
+                  />
+                </label>
+                <p className="text-[0.7rem] text-ink-faint mt-1">
+                  Turn off to force this event at the exact time you entered.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Add button */}
         <div className="flex justify-end mt-3">
           <button
@@ -571,8 +800,7 @@ export default function IdeaSandbox({
         <button
           type="button"
           onClick={async () => {
-            const ok = await handleGenerateTrip()
-            if (ok) onGenerate()
+            await handleGenerateTrip()
           }}
           disabled={isGenerating || !canGenerateItinerary}
           className="btn-primary bg-ink text-white shadow-[0_2px_10px_rgba(44,43,40,0.16)] hover:bg-[#1c1b18] disabled:opacity-60 disabled:pointer-events-none"

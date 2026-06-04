@@ -17,6 +17,29 @@ function ideaMeta(idea: Pick<IdeaItem, 'priority' | 'timeCommitment'>): string {
   return `[priority: ${priorityLabel(idea.priority)}] [time: ${TIME_COMMITMENT_LABEL[idea.timeCommitment]}]`
 }
 
+function customEventMeta(idea: IdeaItem): string {
+  if (!idea.isCustomEvent) return ''
+
+  const parts: string[] = ['[custom_event: yes]']
+  const required = idea.priorityEnabled === false
+  parts.push(required ? '[must_include: yes]' : '[must_include: no]')
+
+  const loc = idea.eventLocation?.trim()
+  if (loc) parts.push(`[event_location: ${loc}]`)
+
+  const link = idea.eventLink?.trim()
+  if (link) parts.push(`[event_link: ${link}]`)
+
+  const time = idea.eventTime?.trim()
+  if (time) {
+    parts.push(`[event_time: ${time}]`)
+    const isFlexible = idea.eventTimeFlexible !== false
+    parts.push(isFlexible ? '[event_time_mode: flexible]' : '[event_time_mode: fixed]')
+  }
+
+  return ` ${parts.join(' ')}`
+}
+
 /** JSON shape returned by `/api/generate-trip` (Gemini). */
 export interface GeneratedTrip {
   tripName: string
@@ -84,7 +107,10 @@ export function buildIdeasPayload(
   plan: PlanDetails,
   board: IdeaItem[],
   draftText: string,
-  draft: Pick<IdeaItem, 'priority' | 'timeCommitment' | 'dealbreaker'>,
+  draft: Pick<
+    IdeaItem,
+    'priority' | 'timeCommitment' | 'dealbreaker' | 'isCustomEvent' | 'eventLink' | 'eventLocation' | 'eventTime' | 'eventTimeFlexible' | 'priorityEnabled'
+  >,
 ): string {
   const lines: string[] = []
   if (plan.name.trim()) lines.push(`Trip name: ${plan.name.trim()}`)
@@ -93,7 +119,7 @@ export function buildIdeasPayload(
   if (plan.budget.trim()) lines.push(`Overall trip budget: ${plan.budget.trim()}`)
   if (lines.length) lines.push('')
   board.forEach((idea, i) => {
-    let row = `${i + 1}. ${idea.text} ${ideaMeta(idea)}`
+    let row = `${i + 1}. ${idea.text} ${ideaMeta(idea)}${customEventMeta(idea)}`
     if (idea.dealbreaker.trim()) row += ` [dealbreakers: ${idea.dealbreaker.trim()}]`
     lines.push(row)
   })
@@ -101,8 +127,21 @@ export function buildIdeasPayload(
   if (draftT) {
     if (board.length) lines.push('')
     const meta = ideaMeta(draft)
+    const draftCustomMeta = customEventMeta({
+      id: 'draft',
+      text: draftT,
+      priority: draft.priority,
+      timeCommitment: draft.timeCommitment,
+      dealbreaker: draft.dealbreaker,
+      isCustomEvent: draft.isCustomEvent,
+      eventLink: draft.eventLink,
+      eventLocation: draft.eventLocation,
+      eventTime: draft.eventTime,
+      eventTimeFlexible: draft.eventTimeFlexible,
+      priorityEnabled: draft.priorityEnabled,
+    })
     lines.push(
-      `${board.length ? 'Also typed in the form (not yet on the board)' : 'Idea from the form'}: ${draftT} ${meta}` +
+      `${board.length ? 'Also typed in the form (not yet on the board)' : 'Idea from the form'}: ${draftT} ${meta}${draftCustomMeta}` +
         (draft.dealbreaker.trim() ? ` [dealbreakers: ${draft.dealbreaker.trim()}]` : ''),
     )
   }
@@ -117,6 +156,12 @@ export interface DraftFields {
   priority: number
   timeCommitment: TimeCommitment
   dealbreaker: string
+  isCustomEvent: boolean
+  eventLink: string
+  eventLocation: string
+  eventTime: string
+  eventTimeFlexible: boolean
+  priorityEnabled: boolean
 }
 
 const emptyDraft = (): DraftFields => ({
@@ -124,6 +169,12 @@ const emptyDraft = (): DraftFields => ({
   priority: 3,
   timeCommitment: 'half_day',
   dealbreaker: '',
+  isCustomEvent: false,
+  eventLink: '',
+  eventLocation: '',
+  eventTime: '',
+  eventTimeFlexible: true,
+  priorityEnabled: true,
 })
 
 /** Body for `POST /api/generate-trip` — same shape from Sandbox (with draft) and Draft (board only). */

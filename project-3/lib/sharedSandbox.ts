@@ -27,12 +27,25 @@ export function isPlanDetails(x: unknown): x is PlanDetails {
 export function isIdeaItem(x: unknown): x is IdeaItem {
   if (!x || typeof x !== 'object') return false
   const o = x as Record<string, unknown>
+  const isCustomEventOk = o.isCustomEvent === undefined || typeof o.isCustomEvent === 'boolean'
+  const eventLinkOk = o.eventLink === undefined || typeof o.eventLink === 'string'
+  const eventLocationOk = o.eventLocation === undefined || typeof o.eventLocation === 'string'
+  const eventTimeOk = o.eventTime === undefined || typeof o.eventTime === 'string'
+  const eventTimeFlexibleOk = o.eventTimeFlexible === undefined || typeof o.eventTimeFlexible === 'boolean'
+  const priorityEnabledOk = o.priorityEnabled === undefined || typeof o.priorityEnabled === 'boolean'
+
   return (
     typeof o.id === 'string' &&
     typeof o.text === 'string' &&
     typeof o.priority === 'number' &&
     isTimeCommitment(o.timeCommitment) &&
-    typeof o.dealbreaker === 'string'
+    typeof o.dealbreaker === 'string' &&
+    isCustomEventOk &&
+    eventLinkOk &&
+    eventLocationOk &&
+    eventTimeOk &&
+    eventTimeFlexibleOk &&
+    priorityEnabledOk
   )
 }
 
@@ -62,6 +75,12 @@ export function buildSharedRecord(planDetails: PlanDetails, ideas: IdeaItem[]): 
       priority: i.priority,
       timeCommitment: i.timeCommitment,
       dealbreaker: i.dealbreaker,
+      isCustomEvent: i.isCustomEvent,
+      eventLink: i.eventLink,
+      eventLocation: i.eventLocation,
+      eventTime: i.eventTime,
+      eventTimeFlexible: i.eventTimeFlexible,
+      priorityEnabled: i.priorityEnabled,
     })),
     updatedAt: new Date().toISOString(),
   }

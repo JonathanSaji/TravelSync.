@@ -18,6 +18,24 @@ export interface IdeaItem {
   priority:         number
   timeCommitment:   TimeCommitment
   dealbreaker:      string   // empty string if none
+  /** True when this entry is a manually created event with optional event metadata. */
+  isCustomEvent?:   boolean
+  /** Optional source/reference URL for custom events. */
+  eventLink?:       string
+  /** Optional event venue or area. */
+  eventLocation?:   string
+  /** Optional time label like "2:00 PM". */
+  eventTime?:       string
+  /**
+   * If true, AI can place this event anywhere that best fits the day.
+   * If false and eventTime exists, AI must schedule at that exact time.
+   */
+  eventTimeFlexible?: boolean
+  /**
+   * If true, this idea follows normal priority scoring.
+   * If false, this idea is mandatory and must be included in the itinerary.
+   */
+  priorityEnabled?: boolean
 }
 
 // The four screens of the app flow

@@ -9,9 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@google/genai": "^1.48.0",
     "@types/pg": "^8.20.0",
     "next": "16.2.2",
+    "openai": "^4.104.0",
     "pg": "^8.21.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"

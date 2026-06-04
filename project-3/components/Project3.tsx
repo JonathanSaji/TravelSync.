@@ -674,6 +674,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
           showToast={showToast}
           authLabel={authUser ? 'Logout' : 'Login'}
           onAuthClick={openUserDialog}
+          currentTrip={generatedTrip}
         />
       )}
 

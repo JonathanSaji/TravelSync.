@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { DM_Serif_Display, Outfit } from 'next/font/google'
 import './globals.css'
+import SubSyncHomeButton from '@/components/SubSyncHomeButton'
 
 // ── Fonts ─────────────────────────────────────────────────────────────────
 // next/font loads fonts at build time — zero layout shift, no external request
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     >
       <body className="bg-cream font-sans antialiased" suppressHydrationWarning>
         {children}
+        <SubSyncHomeButton />
       </body>
     </html>
   )

@@ -27,7 +27,7 @@ function parseTripId(req: Request): number | null {
 
 async function loadTripOwner(tripId: number): Promise<number | null> {
   const result = await dbQuery<{ owner_id: string | number }>(
-    'SELECT owner_id FROM trips WHERE id = $1 LIMIT 1',
+    'SELECT owner_id FROM "TravelSync".trips WHERE id = $1 LIMIT 1',
     [tripId],
   )
   const row = result.rows[0]
@@ -69,9 +69,9 @@ export async function GET(req: Request) {
           s.shared_by_user_id,
           sb.username AS shared_by_username,
           s.created_at
-        FROM trip_shares s
-        JOIN accounts sw ON sw.id = s.shared_with_user_id
-        LEFT JOIN accounts sb ON sb.id = s.shared_by_user_id
+        FROM "TravelSync".trip_shares s
+        JOIN public.accounts sw ON sw.id = s.shared_with_user_id
+        LEFT JOIN public.accounts sb ON sb.id = s.shared_by_user_id
         WHERE s.trip_id = $1
         ORDER BY s.created_at ASC
       `,
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
     }>(
       `
         SELECT id, username, email, display_name
-        FROM accounts
+        FROM public.accounts
         WHERE LOWER(username) = LOWER($1)
           AND LOWER(email) = LOWER($2)
         LIMIT 1
@@ -152,7 +152,7 @@ export async function POST(req: Request) {
       created_at: string
     }>(
       `
-        INSERT INTO trip_shares (trip_id, shared_with_user_id, shared_by_user_id)
+        INSERT INTO "TravelSync".trip_shares (trip_id, shared_with_user_id, shared_by_user_id)
         VALUES ($1, $2, $3)
         ON CONFLICT (trip_id, shared_with_user_id) DO UPDATE
           SET shared_by_user_id = EXCLUDED.shared_by_user_id
@@ -204,7 +204,7 @@ export async function DELETE(req: Request) {
 
     const removed = await dbQuery(
       `
-        DELETE FROM trip_shares
+        DELETE FROM "TravelSync".trip_shares
         WHERE trip_id = $1 AND shared_with_user_id = $2
       `,
       [tripId, sharedUserId],

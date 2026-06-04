@@ -37,7 +37,7 @@ export async function POST(req: Request) {
     const existing = await dbQuery<{ id: string | number }>(
       `
         SELECT id
-        FROM accounts
+        FROM public.accounts
         WHERE LOWER(username) = LOWER($1) OR LOWER(email) = LOWER($2)
         LIMIT 1
       `,
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       email: string
     }>(
       `
-        INSERT INTO accounts (username, email, password_hash, display_name, role, is_active, email_verified, created_at, updated_at)
+        INSERT INTO public.accounts (username, email, password_hash, display_name, role, is_active, email_verified, created_at, updated_at)
         VALUES ($1, $2, $3, $1, 'user', TRUE, FALSE, NOW(), NOW())
         RETURNING id, username, display_name, email
       `,

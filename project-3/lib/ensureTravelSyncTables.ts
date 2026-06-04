@@ -7,10 +7,12 @@ export async function ensureTravelSyncTables() {
   try {
     await client.query('BEGIN')
 
+    await client.query('CREATE SCHEMA IF NOT EXISTS "TravelSync"')
+
     await client.query(`
-      CREATE TABLE IF NOT EXISTS trips (
+      CREATE TABLE IF NOT EXISTS "TravelSync".trips (
         id BIGSERIAL PRIMARY KEY,
-        owner_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        owner_id BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
         plan_details JSONB NOT NULL,
         ideas JSONB NOT NULL DEFAULT '[]'::jsonb,
         itinerary JSONB NOT NULL,
@@ -20,21 +22,21 @@ export async function ensureTravelSyncTables() {
     `)
 
     await client.query(`
-      CREATE TABLE IF NOT EXISTS trip_shares (
-        trip_id BIGINT NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-        shared_with_user_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        shared_by_user_id BIGINT REFERENCES accounts(id) ON DELETE SET NULL,
+      CREATE TABLE IF NOT EXISTS "TravelSync".trip_shares (
+        trip_id BIGINT NOT NULL REFERENCES "TravelSync".trips(id) ON DELETE CASCADE,
+        shared_with_user_id BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
+        shared_by_user_id BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (trip_id, shared_with_user_id)
       )
     `)
 
     await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_trips_owner_id ON trips(owner_id)
+      CREATE INDEX IF NOT EXISTS idx_trips_owner_id ON "TravelSync".trips(owner_id)
     `)
 
     await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_trip_shares_user ON trip_shares(shared_with_user_id)
+      CREATE INDEX IF NOT EXISTS idx_trip_shares_user ON "TravelSync".trip_shares(shared_with_user_id)
     `)
 
     await client.query('COMMIT')
@@ -52,7 +54,7 @@ export async function getTravelSyncTables() {
   }>(`
     SELECT table_name
     FROM information_schema.tables
-    WHERE table_schema = 'public'
+    WHERE table_schema = 'TravelSync'
       AND table_name IN ('trips', 'trip_shares')
     ORDER BY table_name
   `)

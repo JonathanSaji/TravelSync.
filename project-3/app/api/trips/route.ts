@@ -31,7 +31,7 @@ function parseUserId(input: unknown): number | null {
 
 async function loadTripOwner(tripId: number): Promise<number | null> {
   const owner = await dbQuery<{ owner_id: string | number }>(
-    'SELECT owner_id FROM trips WHERE id = $1 LIMIT 1',
+    'SELECT owner_id FROM "TravelSync".trips WHERE id = $1 LIMIT 1',
     [tripId],
   )
   const row = owner.rows[0]
@@ -47,7 +47,7 @@ async function userCanEditTrip(tripId: number, userId: number): Promise<boolean>
   const access = await dbQuery<{ ok: number }>(
     `
       SELECT 1 AS ok
-      FROM trip_shares
+      FROM "TravelSync".trip_shares
       WHERE trip_id = $1 AND shared_with_user_id = $2
       LIMIT 1
     `,
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       updated_at: string
     }>(
       `
-        INSERT INTO trips (owner_id, plan_details, ideas, itinerary)
+        INSERT INTO "TravelSync".trips (owner_id, plan_details, ideas, itinerary)
         VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb)
         RETURNING id, created_at, updated_at
       `,
@@ -137,8 +137,8 @@ export async function GET(req: Request) {
           t.itinerary,
           t.created_at,
           t.updated_at
-        FROM trips t
-        JOIN accounts a ON a.id = t.owner_id
+        FROM "TravelSync".trips t
+        JOIN public.accounts a ON a.id = t.owner_id
         WHERE t.owner_id = $1
         ORDER BY t.updated_at DESC
       `,
@@ -167,9 +167,9 @@ export async function GET(req: Request) {
           t.itinerary,
           t.created_at,
           t.updated_at
-        FROM trips t
-        JOIN trip_shares s ON s.trip_id = t.id
-        JOIN accounts a ON a.id = t.owner_id
+        FROM "TravelSync".trips t
+        JOIN "TravelSync".trip_shares s ON s.trip_id = t.id
+        JOIN public.accounts a ON a.id = t.owner_id
         WHERE s.shared_with_user_id = $1
         ORDER BY t.updated_at DESC
       `,
@@ -260,7 +260,7 @@ export async function PATCH(req: Request) {
     params.push(tripId)
     const updated = await dbQuery<{ id: string | number; updated_at: string }>(
       `
-        UPDATE trips
+        UPDATE "TravelSync".trips
         SET ${updates.join(', ')}, updated_at = NOW()
         WHERE id = $${params.length}
         RETURNING id, updated_at

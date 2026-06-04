@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     }>(
       `
         SELECT id, username, display_name, password_hash, is_active
-        FROM accounts
+        FROM public.accounts
         WHERE username = $1
         LIMIT 1
       `,
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
 
     await dbQuery(
       `
-        UPDATE accounts
+        UPDATE public.accounts
         SET last_login_at = NOW(), updated_at = NOW()
         WHERE id = $1
       `,

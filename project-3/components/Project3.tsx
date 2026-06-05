@@ -638,7 +638,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
               {tripsError}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto pr-1" onClick={() => setOpenMenuTripId(null)}>
+            <div className="flex-1 overflow-y-auto pr-1" onMouseDown={() => setOpenMenuTripId(null)}>
               <section className="mb-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-[0.72rem] font-semibold tracking-[0.1em] uppercase text-ink-faint">My plans</h3>

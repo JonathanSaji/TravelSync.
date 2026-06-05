@@ -638,7 +638,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
               {tripsError}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto pr-1">
+            <div className="flex-1 overflow-y-auto pr-1" onClick={() => setOpenMenuTripId(null)}>
               <section className="mb-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-[0.72rem] font-semibold tracking-[0.1em] uppercase text-ink-faint">My plans</h3>
@@ -651,29 +651,65 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                     </div>
                   ) : (
                     myTrips.map(tripSummary => (
-                      <button
+                      <div
                         key={tripSummary.id}
-                        type="button"
-                        onClick={() => openSavedTrip(tripSummary)}
-                        className="w-full rounded-panel border border-cream-deep bg-white px-3 py-3 text-left shadow-soft transition hover:-translate-y-[1px] hover:border-ink-faint"
+                        className="relative w-full rounded-panel border border-cream-deep bg-white shadow-soft transition hover:-translate-y-[1px] hover:border-ink-faint"
                       >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <p className="text-[0.88rem] font-semibold text-ink">
-                              {tripSummary.planDetails.name || tripSummary.trip.tripName}
-                            </p>
-                            <p className="mt-0.5 text-[0.74rem] text-ink-mid">
-                              {tripSummary.planDetails.location || 'Saved trip'}
-                            </p>
+                        <button
+                          type="button"
+                          onClick={() => openSavedTrip(tripSummary)}
+                          className="w-full px-3 py-3 pr-10 text-left"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-[0.88rem] font-semibold text-ink">
+                                {tripSummary.planDetails.name || tripSummary.trip.tripName}
+                              </p>
+                              <p className="mt-0.5 text-[0.74rem] text-ink-mid">
+                                {tripSummary.planDetails.location || 'Saved trip'}
+                              </p>
+                            </div>
+                            <span className="flex-shrink-0 rounded-full bg-sage px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-white">
+                              Yours
+                            </span>
                           </div>
-                          <span className="rounded-full bg-sage px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-white">
-                            Yours
-                          </span>
-                        </div>
-                        <p className="mt-2 text-[0.7rem] text-ink-faint">
-                          Updated {new Date(tripSummary.updatedAt).toLocaleDateString()}
-                        </p>
-                      </button>
+                          <p className="mt-2 text-[0.7rem] text-ink-faint">
+                            Updated {new Date(tripSummary.updatedAt).toLocaleDateString()}
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation()
+                            setOpenMenuTripId(prev => prev === tripSummary.id ? null : tripSummary.id)
+                          }}
+                          className="absolute right-2.5 top-3 rounded-card border border-cream-deep bg-white px-[7px] py-[3px] text-[0.78rem] font-bold text-ink-mid hover:bg-parchment [-webkit-tap-highlight-color:transparent]"
+                          aria-label="Trip options"
+                          aria-expanded={openMenuTripId === tripSummary.id}
+                        >
+                          ···
+                        </button>
+
+                        {openMenuTripId === tripSummary.id && (
+                          <div className="absolute right-0 top-full z-10 mt-1 w-[148px] overflow-hidden rounded-panel border border-cream-deep bg-white shadow-float">
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); handleEditTrip(tripSummary) }}
+                              className="w-full border-b border-cream-deep px-3 py-[9px] text-left text-[0.8rem] font-medium text-ink hover:bg-parchment"
+                            >
+                              ✏️ Edit trip
+                            </button>
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); handleDeleteTripClick(tripSummary) }}
+                              className="w-full px-3 py-[9px] text-left text-[0.8rem] font-medium text-terra hover:bg-[#fff4ef]"
+                            >
+                              🗑 Delete trip
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     ))
                   )}
                 </div>

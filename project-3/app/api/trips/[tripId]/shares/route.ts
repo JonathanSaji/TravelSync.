@@ -187,34 +187,46 @@ export async function DELETE(req: Request) {
     }
 
     const body = (await req.json()) as ShareBody
-    const ownerUserId = parsePositiveId(body.userId)
+    const requestUserId = parsePositiveId(body.userId)
     const sharedUserId = parsePositiveId(body.sharedUserId)
 
-    if (!ownerUserId || !sharedUserId) {
-      return NextResponse.json({ error: 'Valid userId and sharedUserId are required.' }, { status: 400 })
+    if (!requestUserId) {
+      return NextResponse.json({ error: 'Valid userId is required.' }, { status: 400 })
     }
 
-    const ownerId = await loadTripOwner(tripId)
-    if (!ownerId) {
+    const tripExists = await dbQuery<{ id: string | number }>(
+      'SELECT id FROM "TravelSync".trips WHERE id = $1 LIMIT 1',
+      [tripId],
+    )
+    if (!tripExists.rows[0]) {
       return NextResponse.json({ error: 'Trip not found.' }, { status: 404 })
     }
-    if (ownerUserId !== ownerId) {
-      return NextResponse.json({ error: 'Only the owner can remove share access.' }, { status: 403 })
+
+    if (sharedUserId) {
+      // Owner removing someone else — original behaviour
+      const ownerId = await loadTripOwner(tripId)
+      if (requestUserId !== ownerId) {
+        return NextResponse.json({ error: 'Only the owner can remove share access.' }, { status: 403 })
+      }
+      const removed = await dbQuery(
+        'DELETE FROM "TravelSync".trip_shares WHERE trip_id = $1 AND shared_with_user_id = $2',
+        [tripId, sharedUserId],
+      )
+      if (removed.rowCount === 0) {
+        return NextResponse.json({ error: 'Share access not found.' }, { status: 404 })
+      }
+      return NextResponse.json({ ok: true, tripId: String(tripId), sharedUserId: String(sharedUserId) })
     }
 
+    // Self-removal — no owner check needed
     const removed = await dbQuery(
-      `
-        DELETE FROM "TravelSync".trip_shares
-        WHERE trip_id = $1 AND shared_with_user_id = $2
-      `,
-      [tripId, sharedUserId],
+      'DELETE FROM "TravelSync".trip_shares WHERE trip_id = $1 AND shared_with_user_id = $2',
+      [tripId, requestUserId],
     )
-
     if (removed.rowCount === 0) {
       return NextResponse.json({ error: 'Share access not found.' }, { status: 404 })
     }
-
-    return NextResponse.json({ ok: true, tripId: String(tripId), sharedUserId: String(sharedUserId) })
+    return NextResponse.json({ ok: true, tripId: String(tripId), sharedUserId: String(requestUserId) })
   } catch (error) {
     console.error('trip shares DELETE error:', error)
     return NextResponse.json({ error: 'Failed to revoke share access.' }, { status: 500 })

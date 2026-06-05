@@ -97,7 +97,6 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
-  const [openMenuTripId, setOpenMenuTripId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
     tripId: string
     tripName: string
@@ -428,20 +427,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
     setScreen('setup')
   }
 
-  const handleEditTrip = (tripSummary: SavedTripSummary) => {
-    setOpenMenuTripId(null)
-    setPlan(tripSummary.planDetails)
-    setIdeas(tripSummary.ideas)
-    setSavedTripId(tripSummary.id)
-    setActiveTripOwnerId(tripSummary.ownerId)
-    setGeneratedTrip(null)
-    setScreen('sandbox')
-    setPlansPanelOpen(false)
-    showToast(`Editing ${tripSummary.planDetails.name || 'saved plan'}.`)
-  }
-
   const handleDeleteTripClick = (tripSummary: SavedTripSummary) => {
-    setOpenMenuTripId(null)
     setDeleteTarget({
       tripId: tripSummary.id,
       tripName: tripSummary.planDetails.name || tripSummary.trip.tripName,
@@ -450,7 +436,6 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
   }
 
   const handleRemoveSharedClick = (tripSummary: SavedTripSummary) => {
-    setOpenMenuTripId(null)
     setDeleteTarget({
       tripId: tripSummary.id,
       tripName: tripSummary.planDetails.name || tripSummary.trip.tripName,
@@ -638,7 +623,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
               {tripsError}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto pr-1" onMouseDown={() => setOpenMenuTripId(null)}>
+            <div className="flex-1 overflow-y-auto pr-1">
               <section className="mb-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-[0.72rem] font-semibold tracking-[0.1em] uppercase text-ink-faint">My plans</h3>
@@ -680,35 +665,12 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
 
                         <button
                           type="button"
-                          onClick={e => {
-                            e.stopPropagation()
-                            setOpenMenuTripId(prev => prev === tripSummary.id ? null : tripSummary.id)
-                          }}
-                          className="absolute right-2.5 top-3 rounded-card border border-cream-deep bg-white px-[7px] py-[3px] text-[0.78rem] font-bold text-ink-mid hover:bg-parchment [-webkit-tap-highlight-color:transparent]"
-                          aria-label="Trip options"
-                          aria-expanded={openMenuTripId === tripSummary.id}
+                          onClick={e => { e.stopPropagation(); handleDeleteTripClick(tripSummary) }}
+                          className="absolute right-2.5 top-3 rounded-card border border-cream-deep bg-white px-[7px] py-[3px] text-[0.8rem] text-terra hover:bg-[#fff4ef] [-webkit-tap-highlight-color:transparent]"
+                          aria-label="Delete trip"
                         >
-                          ···
+                          🗑
                         </button>
-
-                        {openMenuTripId === tripSummary.id && (
-                          <div className="absolute right-0 top-full z-10 mt-1 w-[148px] overflow-hidden rounded-panel border border-cream-deep bg-white shadow-float">
-                            <button
-                              type="button"
-                              onClick={e => { e.stopPropagation(); handleEditTrip(tripSummary) }}
-                              className="w-full border-b border-cream-deep px-3 py-[9px] text-left text-[0.8rem] font-medium text-ink hover:bg-parchment"
-                            >
-                              ✏️ Edit trip
-                            </button>
-                            <button
-                              type="button"
-                              onClick={e => { e.stopPropagation(); handleDeleteTripClick(tripSummary) }}
-                              className="w-full px-3 py-[9px] text-left text-[0.8rem] font-medium text-terra hover:bg-[#fff4ef]"
-                            >
-                              🗑 Delete trip
-                            </button>
-                          </div>
-                        )}
                       </div>
                     ))
                   )}
@@ -756,28 +718,12 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
 
                         <button
                           type="button"
-                          onClick={e => {
-                            e.stopPropagation()
-                            setOpenMenuTripId(prev => prev === tripSummary.id ? null : tripSummary.id)
-                          }}
-                          className="absolute right-2.5 top-3 rounded-card border border-cream-deep bg-white px-[7px] py-[3px] text-[0.78rem] font-bold text-ink-mid hover:bg-parchment [-webkit-tap-highlight-color:transparent]"
-                          aria-label="Trip options"
-                          aria-expanded={openMenuTripId === tripSummary.id}
+                          onClick={e => { e.stopPropagation(); handleRemoveSharedClick(tripSummary) }}
+                          className="absolute right-2.5 top-3 rounded-card border border-cream-deep bg-white px-[7px] py-[3px] text-[0.8rem] text-terra hover:bg-[#fff4ef] [-webkit-tap-highlight-color:transparent]"
+                          aria-label="Remove shared trip"
                         >
-                          ···
+                          🗑
                         </button>
-
-                        {openMenuTripId === tripSummary.id && (
-                          <div className="absolute right-0 top-full z-10 mt-1 w-[148px] overflow-hidden rounded-panel border border-cream-deep bg-white shadow-float">
-                            <button
-                              type="button"
-                              onClick={e => { e.stopPropagation(); handleRemoveSharedClick(tripSummary) }}
-                              className="w-full px-3 py-[9px] text-left text-[0.8rem] font-medium text-terra hover:bg-[#fff4ef]"
-                            >
-                              ✕ Remove
-                            </button>
-                          </div>
-                        )}
                       </div>
                     ))
                   )}

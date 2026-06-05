@@ -97,6 +97,13 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
+  const [openMenuTripId, setOpenMenuTripId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    tripId: string
+    tripName: string
+    type: 'delete' | 'remove'
+  } | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   // ── Toast helper ────────────────────────────────────────────
   const showToast = useCallback((msg: string) => {
@@ -419,6 +426,79 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
     setSavedTripId(null)
     setActiveTripOwnerId(null)
     setScreen('setup')
+  }
+
+  const handleEditTrip = (tripSummary: SavedTripSummary) => {
+    setOpenMenuTripId(null)
+    setPlan(tripSummary.planDetails)
+    setIdeas(tripSummary.ideas)
+    setSavedTripId(tripSummary.id)
+    setActiveTripOwnerId(tripSummary.ownerId)
+    setGeneratedTrip(null)
+    setScreen('sandbox')
+    setPlansPanelOpen(false)
+    showToast(`Editing ${tripSummary.planDetails.name || 'saved plan'}.`)
+  }
+
+  const handleDeleteTripClick = (tripSummary: SavedTripSummary) => {
+    setOpenMenuTripId(null)
+    setDeleteTarget({
+      tripId: tripSummary.id,
+      tripName: tripSummary.planDetails.name || tripSummary.trip.tripName,
+      type: 'delete',
+    })
+  }
+
+  const handleRemoveSharedClick = (tripSummary: SavedTripSummary) => {
+    setOpenMenuTripId(null)
+    setDeleteTarget({
+      tripId: tripSummary.id,
+      tripName: tripSummary.planDetails.name || tripSummary.trip.tripName,
+      type: 'remove',
+    })
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget || !authUser?.id) return
+    setDeleteBusy(true)
+    try {
+      const { tripId, tripName, type } = deleteTarget
+      const res = await fetch(
+        type === 'delete'
+          ? `/api/trips/${tripId}`
+          : `/api/trips/${tripId}/shares`,
+        {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: authUser.id }),
+        },
+      )
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(typeof data?.error === 'string' ? data.error : `Could not ${type} trip.`)
+        return
+      }
+      if (type === 'delete') {
+        setMyTrips(prev => prev.filter(t => t.id !== tripId))
+      } else {
+        setSharedTrips(prev => prev.filter(t => t.id !== tripId))
+      }
+      if (savedTripId === tripId) {
+        setPlan({ name: '', location: '', dates: '', group: '', budget: '' })
+        setIdeas([])
+        setGeneratedTrip(null)
+        setSavedTripId(null)
+        setActiveTripOwnerId(null)
+        setScreen('setup')
+      }
+      setDeleteTarget(null)
+      showToast(type === 'delete' ? `"${tripName}" deleted.` : `Removed from "${tripName}".`)
+    } catch (error) {
+      console.error('Delete/remove trip error:', error)
+      showToast('Something went wrong. Try again.')
+    } finally {
+      setDeleteBusy(false)
+    }
   }
 
   const handleLogin = async () => {

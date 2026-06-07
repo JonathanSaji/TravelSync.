@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { groupPhotosByDay } from "@/lib/groupPhotos";
 import type { TripPhoto } from "@/lib/tripPhotos";
 
@@ -40,15 +39,30 @@ export function PhotoTimeline({ photos, tripStartDate }: Props) {
   );
 }
 
+function resolveUrl(storageUrl: string): string {
+  const photosyncBase = process.env.NEXT_PUBLIC_PHOTOSYNC_URL;
+  if (!photosyncBase) return storageUrl;
+  try {
+    const url = new URL(storageUrl);
+    if (url.hostname === "localhost") {
+      const base = new URL(photosyncBase);
+      url.protocol = base.protocol;
+      url.hostname = base.hostname;
+      url.port = base.port;
+    }
+    return url.toString();
+  } catch {
+    return storageUrl;
+  }
+}
+
 function PhotoThumb({ photo }: { photo: TripPhoto }) {
   return (
-    <div className="relative aspect-square overflow-hidden rounded-[10px] bg-cream-deep">
-      <Image
-        src={photo.storage_url}
+    <div className="aspect-square overflow-hidden rounded-[10px] bg-cream-deep">
+      <img
+        src={resolveUrl(photo.storage_url)}
         alt=""
-        fill
-        className="object-cover"
-        sizes="(max-width: 768px) 33vw, 200px"
+        className="w-full h-full object-cover"
       />
     </div>
   );

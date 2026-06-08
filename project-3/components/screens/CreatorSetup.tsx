@@ -63,11 +63,12 @@ function Field({ id, label, value, onChange, placeholder, maxLength, className =
 // ── Screen component ────────────────────────────────────────────────────────
 
 export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthClick }: Props) {
-  const [name,     setName]     = useState('')
-  const [location, setLocation] = useState('')
-  const [dates,    setDates]    = useState('')
-  const [group,   setGroup]    = useState('Friends')
-  const [budget,  setBudget]   = useState('Standard')
+  const [name,      setName]      = useState('')
+  const [location,  setLocation]  = useState('')
+  const [dates,     setDates]     = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [group,     setGroup]     = useState('Friends')
+  const [budget,    setBudget]    = useState('Standard')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleSubmit = async () => {
@@ -75,11 +76,12 @@ export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthCl
     setIsSubmitting(true)
     try {
       await onSubmit({
-        name:     name.trim()     || 'My Plan',
-        location: location.trim() || 'Location TBD',
-        dates:    dates.trim()    || 'Dates TBD',
-        group:    group.trim()    || 'Group Dynamic TBD',
-        budget:   budget.trim()   || 'Budget TBD',
+        name:      name.trim()     || 'My Plan',
+        location:  location.trim() || 'Location TBD',
+        dates:     dates.trim()    || 'Dates TBD',
+        group:     group.trim()    || 'Group Dynamic TBD',
+        budget:    budget.trim()   || 'Budget TBD',
+        startDate: startDate.trim() || undefined,
       })
     } finally {
       setIsSubmitting(false)
@@ -153,6 +155,23 @@ export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthCl
               <Field id="inp-name"  label="Plan Name"       value={name}     onChange={setName}     placeholder="e.g. Ottawa Weekend, Friday Dinner" maxLength={52} disabled={!isLoggedIn} />
               <Field id="inp-loc"   label="Location"        value={location} onChange={setLocation} placeholder="e.g. Downtown Toronto, Japan"                maxLength={60} disabled={!isLoggedIn} />
               <Field id="inp-dates" label="Dates / Duration" value={dates}   onChange={setDates}    placeholder="e.g. Aug 12–14  or  4 hours"          maxLength={40} disabled={!isLoggedIn} />
+
+              <div className="last:mb-0 mb-[13px]">
+                <label htmlFor="inp-start-date" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
+                  Trip Start Date
+                </label>
+                <input
+                  id="inp-start-date"
+                  type="date"
+                  value={startDate}
+                  onChange={e => setStartDate(e.target.value)}
+                  disabled={!isLoggedIn}
+                  autoComplete="off"
+                  className="input-field"
+                  aria-label="Trip start date for reminders"
+                />
+                <p className="mt-1 text-[0.68rem] text-ink-faint">Used to send you reminder emails before your trip.</p>
+              </div>
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>

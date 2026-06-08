@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { dbQuery } from '@/lib/db'
 import { isGeneratedTrip } from '@/lib/buildTripOrder'
 import { isIdeaItem, isPlanDetails } from '@/lib/sharedSandbox'
+import { getTripOwnerColumn } from '@/lib/tripOwnerColumn'
 
 export const dynamic = 'force-dynamic'
 
@@ -30,8 +31,9 @@ function parseUserId(input: unknown): number | null {
 }
 
 async function loadTripOwner(tripId: number): Promise<number | null> {
+  const ownerColumn = await getTripOwnerColumn()
   const owner = await dbQuery<{ owner_id: string | number }>(
-    'SELECT owner_id FROM "TravelSync".trips WHERE id = $1 LIMIT 1',
+    `SELECT ${ownerColumn} AS owner_id FROM "TravelSync".trips WHERE id = $1 LIMIT 1`,
     [tripId],
   )
   const row = owner.rows[0]
@@ -59,6 +61,7 @@ async function userCanEditTrip(tripId: number, userId: number): Promise<boolean>
 
 export async function POST(req: Request) {
   try {
+    const ownerColumn = await getTripOwnerColumn()
     const body = (await req.json()) as SaveTripBody
     const userId = parseUserId(body.userId)
 
@@ -78,14 +81,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid itinerary payload.' }, { status: 400 })
     }
 
+    const planDetails = body.planDetails as { startDate?: string }
+    const startDateRaw = typeof planDetails.startDate === 'string' && planDetails.startDate.trim()
+      ? planDetails.startDate.trim()
+      : null
+
     const inserted = await dbQuery<{
       id: string | number
       created_at: string
       updated_at: string
     }>(
       `
-        INSERT INTO "TravelSync".trips (owner_id, plan_details, ideas, itinerary)
-        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb)
+        INSERT INTO "TravelSync".trips (${ownerColumn}, plan_details, ideas, itinerary, start_date)
+        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::date)
         RETURNING id, created_at, updated_at
       `,
       [
@@ -93,6 +101,7 @@ export async function POST(req: Request) {
         JSON.stringify(body.planDetails),
         JSON.stringify(body.ideas),
         JSON.stringify(body.trip),
+        startDateRaw,
       ],
     )
 
@@ -110,6 +119,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    const ownerColumn = await getTripOwnerColumn()
     const userId = parseUserId(new URL(req.url).searchParams.get('userId'))
     if (!userId) {
       return NextResponse.json({ error: 'Valid userId query param is required.' }, { status: 400 })
@@ -123,23 +133,29 @@ export async function GET(req: Request) {
       plan_details: unknown
       ideas: unknown
       itinerary: unknown
+      confirmed: boolean
+      trip_status: string
+      start_date: string | null
       created_at: string
       updated_at: string
     }>(
       `
         SELECT
           t.id,
-          t.owner_id,
+          t.${ownerColumn} AS owner_id,
           a.username AS owner_username,
           a.display_name AS owner_display_name,
           t.plan_details,
           t.ideas,
           t.itinerary,
+          t.confirmed,
+          t.trip_status,
+          t.start_date,
           t.created_at,
           t.updated_at
         FROM "TravelSync".trips t
-        JOIN public.accounts a ON a.id = t.owner_id
-        WHERE t.owner_id = $1
+        JOIN public.accounts a ON a.id = t.${ownerColumn}
+        WHERE t.${ownerColumn} = $1
         ORDER BY t.updated_at DESC
       `,
       [userId],
@@ -153,23 +169,29 @@ export async function GET(req: Request) {
       plan_details: unknown
       ideas: unknown
       itinerary: unknown
+      confirmed: boolean
+      trip_status: string
+      start_date: string | null
       created_at: string
       updated_at: string
     }>(
       `
         SELECT DISTINCT
           t.id,
-          t.owner_id,
+          t.${ownerColumn} AS owner_id,
           a.username AS owner_username,
           a.display_name AS owner_display_name,
           t.plan_details,
           t.ideas,
           t.itinerary,
+          t.confirmed,
+          t.trip_status,
+          t.start_date,
           t.created_at,
           t.updated_at
         FROM "TravelSync".trips t
         JOIN "TravelSync".trip_shares s ON s.trip_id = t.id
-        JOIN public.accounts a ON a.id = t.owner_id
+        JOIN public.accounts a ON a.id = t.${ownerColumn}
         WHERE s.shared_with_user_id = $1
         ORDER BY t.updated_at DESC
       `,
@@ -185,6 +207,9 @@ export async function GET(req: Request) {
         planDetails: r.plan_details,
         ideas: r.ideas,
         trip: r.itinerary,
+        confirmed: Boolean(r.confirmed),
+        tripStatus: r.trip_status ?? 'planned',
+        startDate: r.start_date ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -196,6 +221,9 @@ export async function GET(req: Request) {
         planDetails: r.plan_details,
         ideas: r.ideas,
         trip: r.itinerary,
+        confirmed: Boolean(r.confirmed),
+        tripStatus: r.trip_status ?? 'planned',
+        startDate: r.start_date ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -235,6 +263,13 @@ export async function PATCH(req: Request) {
       }
       params.push(JSON.stringify(body.planDetails))
       updates.push(`plan_details = $${params.length}::jsonb`)
+
+      // Also update the dedicated start_date column for cron queries
+      const pdStartDate = (body.planDetails as { startDate?: string }).startDate
+      if (typeof pdStartDate === 'string' && pdStartDate.trim()) {
+        params.push(pdStartDate.trim())
+        updates.push(`start_date = $${params.length}::date`)
+      }
     }
 
     if (body.ideas !== undefined) {

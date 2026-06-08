@@ -91,4 +91,13 @@
            transition-all duration-[260ms] active:scale-[0.97]
            [-webkit-tap-highlight-color:transparent];
   }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { dbQuery } from '@/lib/db'
+import { getTripOwnerColumn } from '@/lib/tripOwnerColumn'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,8 +27,9 @@ function parseTripId(req: Request): number | null {
 }
 
 async function loadTripOwner(tripId: number): Promise<number | null> {
+  const ownerColumn = await getTripOwnerColumn()
   const result = await dbQuery<{ owner_id: string | number }>(
-    'SELECT owner_id FROM "TravelSync".trips WHERE id = $1 LIMIT 1',
+    `SELECT ${ownerColumn} AS owner_id FROM "TravelSync".trips WHERE id = $1 LIMIT 1`,
     [tripId],
   )
   const row = result.rows[0]

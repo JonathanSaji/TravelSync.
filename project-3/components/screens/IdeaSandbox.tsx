@@ -333,9 +333,23 @@ export default function IdeaSandbox({
       return false
     }
 
-    setConfirmOpen(true)
-    return false // actual generation starts from confirmAndGenerate
+    void confirmAndGenerate()
+    return true
   }
+
+  useEffect(() => {
+    const handleDocumentClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null
+      if (!target) return
+      const button = target.closest('[data-generate-button="true"]')
+      if (!button) return
+      event.preventDefault()
+      void handleGenerateTrip()
+    }
+
+    document.addEventListener('click', handleDocumentClick, true)
+    return () => document.removeEventListener('click', handleDocumentClick, true)
+  }, [handleGenerateTrip])
 
   const confirmAndGenerate = async () => {
     setConfirmOpen(false)
@@ -799,9 +813,7 @@ export default function IdeaSandbox({
       <div className="sticky bottom-0 pt-[14px] bg-gradient-to-t from-cream from-[70%] to-transparent">
         <button
           type="button"
-          onClick={async () => {
-            await handleGenerateTrip()
-          }}
+          data-generate-button="true"
           disabled={isGenerating || !canGenerateItinerary}
           className="btn-primary bg-ink text-white shadow-[0_2px_10px_rgba(44,43,40,0.16)] hover:bg-[#1c1b18] disabled:opacity-60 disabled:pointer-events-none"
           aria-label="Generate AI itinerary"

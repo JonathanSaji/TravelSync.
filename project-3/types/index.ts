@@ -1,11 +1,13 @@
 // ── Domain types ──────────────────────────────────────────────────────────
 
 export interface PlanDetails {
-  name:     string
-  location: string
-  dates:    string
-  group:    string
-  budget:   string
+  name:      string
+  location:  string
+  dates:     string
+  group:     string
+  budget:    string
+  /** ISO date string YYYY-MM-DD representing the trip start date. Used for reminders. */
+  startDate?: string
 }
 
 /** Per-idea time footprint (dropdown in Idea Sandbox). */

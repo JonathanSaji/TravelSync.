@@ -39,6 +39,9 @@ interface SavedTripSummary {
   planDetails: PlanDetails
   ideas: IdeaItem[]
   trip: GeneratedTrip
+  confirmed: boolean
+  tripStatus: string
+  startDate: string | null
   createdAt: string
   updatedAt: string
   start_date?: string | null
@@ -99,6 +102,8 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
   const [loginUsername, setLoginUsername] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginBusy, setLoginBusy] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [confirmingTripId, setConfirmingTripId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
     tripId: string
     tripName: string
@@ -585,10 +590,130 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
     setAuthDialogOpen(true)
   }
 
+  // ── Upcoming trips (within 7 days) ──────────────────────────
+  const upcomingTrips = [...myTrips, ...sharedTrips].filter(t => {
+    if (!t.startDate) return false
+    const start = new Date(t.startDate)
+    const now = new Date()
+    const diffDays = (start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+    return diffDays >= 0 && diffDays <= 7 && t.tripStatus !== 'happening_now'
+  })
+
+  // ── Confirm trip ─────────────────────────────────────────────
+  const handleConfirmTrip = async (tripId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!authUser?.id || confirmingTripId) return
+    setConfirmingTripId(tripId)
+    try {
+      const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: authUser.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(typeof data?.error === 'string' ? data.error : 'Could not confirm trip.')
+        return
+      }
+      showToast('Trip confirmed! Confirmation emails sent to everyone.')
+      void loadSavedTrips()
+    } catch {
+      showToast('Could not reach the server.')
+    } finally {
+      setConfirmingTripId(null)
+    }
+  }
+
   // ── Render ──────────────────────────────────────────────────
   return (
     // Outer wrapper centres screens and keeps the paper texture behind everything
     <div className="flex flex-col items-center min-h-screen relative">
+
+      {/* ── Notification Bell (fixed, top-right) ── */}
+      {authUser && (
+        <div className="fixed top-[18px] right-4 z-[120]">
+          <button
+            type="button"
+            onClick={() => setNotifOpen(prev => !prev)}
+            aria-label={`Notifications${upcomingTrips.length > 0 ? ` — ${upcomingTrips.length} upcoming` : ''}`}
+            className="relative flex items-center justify-center w-9 h-9 rounded-full border border-cream-deep bg-white shadow-soft transition hover:bg-parchment active:scale-[0.96]"
+          >
+            {/* Bell SVG */}
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-ink-mid" aria-hidden="true">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+              <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {upcomingTrips.length > 0 && (
+              <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-terra text-[0.6rem] font-bold text-white leading-none" aria-hidden="true">
+                {upcomingTrips.length}
+              </span>
+            )}
+          </button>
+
+          {/* Bell dropdown */}
+          {notifOpen && (
+            <div
+              className="absolute right-0 top-11 w-[280px] rounded-panel border border-cream-deep bg-white shadow-float z-[121]"
+              role="dialog"
+              aria-label="Upcoming trips"
+            >
+              <div className="px-4 py-3 border-b border-cream-deep flex items-center justify-between">
+                <p className="text-[0.72rem] font-semibold tracking-[0.1em] uppercase text-ink-faint">Upcoming Trips</p>
+                <button type="button" onClick={() => setNotifOpen(false)} className="text-[0.72rem] text-ink-mid hover:text-ink" aria-label="Close notifications">✕</button>
+              </div>
+              {upcomingTrips.length === 0 ? (
+                <p className="px-4 py-4 text-[0.82rem] text-ink-mid">No trips coming up in the next 7 days.</p>
+              ) : (
+                <div className="max-h-[320px] overflow-y-auto no-scrollbar divide-y divide-cream-deep">
+                  {upcomingTrips.map(t => {
+                    const daysAway = t.startDate
+                      ? Math.ceil((new Date(t.startDate).getTime() - Date.now()) / 86400000)
+                      : null
+                    return (
+                      <div key={t.id} className="px-4 py-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-[0.84rem] font-semibold text-ink">{t.planDetails.name || t.trip.tripName}</p>
+                            <p className="text-[0.72rem] text-ink-mid">📍 {t.planDetails.location}</p>
+                            {daysAway !== null && (
+                              <p className="mt-0.5 text-[0.7rem] font-semibold text-terra">
+                                {daysAway === 0 ? 'Today!' : daysAway === 1 ? 'Tomorrow!' : `In ${daysAway} days`}
+                              </p>
+                            )}
+                          </div>
+                          {t.confirmed ? (
+                            <span className="shrink-0 rounded-full bg-sage px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.07em] text-white">Confirmed</span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={e => handleConfirmTrip(t.id, e)}
+                              disabled={confirmingTripId === t.id}
+                              className="shrink-0 rounded-full bg-terra px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.07em] text-white transition hover:opacity-80 disabled:opacity-60"
+                            >
+                              {confirmingTripId === t.id ? '…' : 'Confirm'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              <div className="px-4 py-3 border-t border-cream-deep">
+                <p className="text-[0.7rem] text-ink-faint leading-relaxed">
+                  Confirm your trip to notify everyone and get subscription reminders via{' '}
+                  <a href="https://trackersync.sub-sync.ca" target="_blank" rel="noopener noreferrer" className="text-sage underline">SubSync</a>.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Backdrop to close bell dropdown */}
+          {notifOpen && (
+            <div className="fixed inset-0 z-[119]" onClick={() => setNotifOpen(false)} aria-hidden="true" />
+          )}
+        </div>
+      )}
       <aside
         className={[
           'fixed left-0 top-0 z-[90] h-[100dvh] w-[300px] border-r border-cream-deep bg-[rgba(255,250,242,0.96)] shadow-float backdrop-blur-sm transition-transform duration-300 ease-out',
@@ -627,7 +752,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
               {tripsError}
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto pr-1">
+            <div className="flex-1 overflow-y-auto pr-1 no-scrollbar">
               <section className="mb-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-[0.72rem] font-semibold tracking-[0.1em] uppercase text-ink-faint">My plans</h3>
@@ -640,10 +765,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                     </div>
                   ) : (
                     myTrips.map(tripSummary => (
-                      <div
-                        key={tripSummary.id}
-                        className="relative w-full rounded-panel border border-cream-deep bg-white shadow-soft transition hover:-translate-y-[1px] hover:border-ink-faint"
-                      >
+                      <div key={tripSummary.id} className="relative w-full rounded-panel border border-cream-deep bg-white shadow-soft transition hover:-translate-y-[1px] hover:border-ink-faint">
                         <button
                           type="button"
                           onClick={() => openSavedTrip(tripSummary)}
@@ -658,14 +780,35 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                                 {tripSummary.planDetails.location || 'Saved trip'}
                               </p>
                             </div>
-                            <span className="flex-shrink-0 rounded-full bg-sage px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-white">
-                              Yours
-                            </span>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="rounded-full bg-sage px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-white">
+                                Yours
+                              </span>
+                              {tripSummary.confirmed && (
+                                <span className="rounded-full bg-sage/20 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.06em] text-sage">
+                                  ✓ Confirmed
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <p className="mt-2 text-[0.7rem] text-ink-faint">
                             Updated {new Date(tripSummary.updatedAt).toLocaleDateString()}
                           </p>
                         </button>
+
+                        {!tripSummary.confirmed && (
+                          <div className="border-t border-cream-deep px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={e => handleConfirmTrip(tripSummary.id, e)}
+                              disabled={confirmingTripId === tripSummary.id}
+                              className="w-full rounded-card bg-terra/90 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.07em] text-white transition hover:bg-terra disabled:opacity-60"
+                              aria-label={`Confirm trip: ${tripSummary.planDetails.name || tripSummary.trip.tripName}`}
+                            >
+                              {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Trip'}
+                            </button>
+                          </div>
+                        )}
 
                         <button
                           type="button"
@@ -693,10 +836,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                     </div>
                   ) : (
                     sharedTrips.map(tripSummary => (
-                      <div
-                        key={tripSummary.id}
-                        className="relative w-full rounded-panel border border-cream-deep bg-white shadow-soft transition hover:-translate-y-[1px] hover:border-ink-faint"
-                      >
+                      <div key={tripSummary.id} className="relative w-full rounded-panel border border-cream-deep bg-white shadow-soft transition hover:-translate-y-[1px] hover:border-ink-faint">
                         <button
                           type="button"
                           onClick={() => openSavedTrip(tripSummary)}
@@ -711,14 +851,35 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                                 Shared by @{tripSummary.ownerUsername}
                               </p>
                             </div>
-                            <span className="flex-shrink-0 rounded-full bg-sand px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-ink">
-                              Shared
-                            </span>
+                            <div className="flex flex-col items-end gap-1 shrink-0">
+                              <span className="rounded-full bg-sand px-2 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-ink">
+                                Shared
+                              </span>
+                              {tripSummary.confirmed && (
+                                <span className="rounded-full bg-sage/20 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.06em] text-sage">
+                                  ✓ Confirmed
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <p className="mt-2 text-[0.7rem] text-ink-faint">
                             Updated {new Date(tripSummary.updatedAt).toLocaleDateString()}
                           </p>
                         </button>
+
+                        {!tripSummary.confirmed && (
+                          <div className="border-t border-cream-deep px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={e => handleConfirmTrip(tripSummary.id, e)}
+                              disabled={confirmingTripId === tripSummary.id}
+                              className="w-full rounded-card bg-terra/90 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.07em] text-white transition hover:bg-terra disabled:opacity-60"
+                              aria-label={`Confirm trip: ${tripSummary.planDetails.name || tripSummary.trip.tripName}`}
+                            >
+                              {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Trip'}
+                            </button>
+                          </div>
+                        )}
 
                         <button
                           type="button"

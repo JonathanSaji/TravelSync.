@@ -81,14 +81,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid itinerary payload.' }, { status: 400 })
     }
 
+    const planDetails = body.planDetails as { startDate?: string }
+    const startDateRaw = typeof planDetails.startDate === 'string' && planDetails.startDate.trim()
+      ? planDetails.startDate.trim()
+      : null
+
     const inserted = await dbQuery<{
       id: string | number
       created_at: string
       updated_at: string
     }>(
       `
-        INSERT INTO "TravelSync".trips (${ownerColumn}, plan_details, ideas, itinerary)
-        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb)
+        INSERT INTO "TravelSync".trips (${ownerColumn}, plan_details, ideas, itinerary, start_date)
+        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::date)
         RETURNING id, created_at, updated_at
       `,
       [
@@ -96,6 +101,7 @@ export async function POST(req: Request) {
         JSON.stringify(body.planDetails),
         JSON.stringify(body.ideas),
         JSON.stringify(body.trip),
+        startDateRaw,
       ],
     )
 
@@ -127,6 +133,9 @@ export async function GET(req: Request) {
       plan_details: unknown
       ideas: unknown
       itinerary: unknown
+      confirmed: boolean
+      trip_status: string
+      start_date: string | null
       created_at: string
       updated_at: string
     }>(
@@ -139,6 +148,9 @@ export async function GET(req: Request) {
           t.plan_details,
           t.ideas,
           t.itinerary,
+          t.confirmed,
+          t.trip_status,
+          t.start_date,
           t.created_at,
           t.updated_at
         FROM "TravelSync".trips t
@@ -157,6 +169,9 @@ export async function GET(req: Request) {
       plan_details: unknown
       ideas: unknown
       itinerary: unknown
+      confirmed: boolean
+      trip_status: string
+      start_date: string | null
       created_at: string
       updated_at: string
     }>(
@@ -169,6 +184,9 @@ export async function GET(req: Request) {
           t.plan_details,
           t.ideas,
           t.itinerary,
+          t.confirmed,
+          t.trip_status,
+          t.start_date,
           t.created_at,
           t.updated_at
         FROM "TravelSync".trips t
@@ -189,6 +207,9 @@ export async function GET(req: Request) {
         planDetails: r.plan_details,
         ideas: r.ideas,
         trip: r.itinerary,
+        confirmed: Boolean(r.confirmed),
+        tripStatus: r.trip_status ?? 'planned',
+        startDate: r.start_date ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -200,6 +221,9 @@ export async function GET(req: Request) {
         planDetails: r.plan_details,
         ideas: r.ideas,
         trip: r.itinerary,
+        confirmed: Boolean(r.confirmed),
+        tripStatus: r.trip_status ?? 'planned',
+        startDate: r.start_date ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -239,6 +263,13 @@ export async function PATCH(req: Request) {
       }
       params.push(JSON.stringify(body.planDetails))
       updates.push(`plan_details = $${params.length}::jsonb`)
+
+      // Also update the dedicated start_date column for cron queries
+      const pdStartDate = (body.planDetails as { startDate?: string }).startDate
+      if (typeof pdStartDate === 'string' && pdStartDate.trim()) {
+        params.push(pdStartDate.trim())
+        updates.push(`start_date = $${params.length}::date`)
+      }
     }
 
     if (body.ideas !== undefined) {

@@ -146,8 +146,6 @@ export function buildIdeasPayload(
     )
   }
 
-  console.log('buildIdeasPayload lines:', lines)
-
   return lines.join('\n')
 }
 

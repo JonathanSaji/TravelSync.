@@ -85,13 +85,66 @@ function extractResponseText(response: OpenAI.Responses.Response): string {
   return chunks.join('\n').trim();
 }
 
+function buildFallbackTrip(body: GenerateTripBody, promptData: { text: string; tripName: string }) {
+  const location = toTrimmedString(body.location, 'your destination');
+  const days = toTripDays(body.days);
+  const ideaLines = toTrimmedString(body.ideas, '')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(line => /^\d+\./.test(line))
+    .map(line => line.replace(/^\d+\.\s*/, '').replace(/\s+\[.*$/, '').trim())
+    .filter(Boolean)
+    .slice(0, 8);
+
+  const fallbackTripName = promptData.tripName || `Trip to ${location}`;
+
+  const itinerary = Array.from({ length: days }, (_, index) => {
+    const dayNumber = index + 1;
+    const focus = ideaLines[index % Math.max(ideaLines.length, 1)] || `Explore ${location}`;
+    return {
+      day: dayNumber,
+      theme: dayNumber === 1 ? `Arrival and set-up in ${location}` : `Day ${dayNumber} around ${location}`,
+      activities: [
+        {
+          time: '9:00 AM',
+          name: `Coffee and plan the day`,
+          description: `Start slow and map out the best spots around ${location}.`,
+          tags: ['easy-start', 'fallback'],
+        },
+        {
+          time: '12:00 PM',
+          name: focus,
+          description: `A flexible stop based on your sandbox ideas and trip context.`,
+          tags: ['idea', 'fallback'],
+        },
+        {
+          time: '4:00 PM',
+          name: `Explore more of ${location}`,
+          description: `Leave space for photos, food, and anything the group wants to add.`,
+          tags: ['explore', 'fallback'],
+        },
+      ],
+    }
+  });
+
+  return {
+    tripName: fallbackTripName,
+    harmonyPlan: {
+      note: 'Fallback itinerary generated locally because the AI service was unavailable.',
+      conflicts: [],
+    },
+    itinerary,
+  };
+}
+
 export async function POST(req: Request) {
+  const body = (await req.json()) as GenerateTripBody;
+
   try {
     if (!process.env.OPENAI_API_KEY?.trim()) {
       return NextResponse.json({ error: 'OPENAI_API_KEY is missing on the server.' }, { status: 500 });
     }
 
-    const body = (await req.json()) as GenerateTripBody;
     const promptData = buildPromptText(body);
 
     const response = await openai.responses.create({
@@ -124,9 +177,15 @@ export async function POST(req: Request) {
     return NextResponse.json(parsed);
   } catch (error) {
     console.error('AI Generation Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate trip. Please try again.' },
-      { status: 500 },
-    );
+    try {
+      const promptData = buildPromptText(body);
+      return NextResponse.json(buildFallbackTrip(body, promptData));
+    } catch (fallbackError) {
+      console.error('Fallback generation error:', fallbackError);
+      return NextResponse.json(
+        { error: 'Failed to generate trip. Please try again.' },
+        { status: 500 },
+      );
+    }
   }
 }

@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { PlanDetails } from '../../types'
 import { GeneratedTrip } from '../../lib/buildTripOrder'
 import { ItineraryDayTabBar } from '../ItineraryDayTabBar'
@@ -71,10 +72,16 @@ export default function SuccessState({ planDetails, trip, tripId, onStartOver, s
   const [shareUsername, setShareUsername] = useState('')
   const [shareEmail, setShareEmail] = useState('')
   const [shareBusy, setShareBusy] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const stops = useMemo(
     () => tripToStopsForDay(trip, Math.min(activeDayIndex, Math.max(0, days.length - 1))),
     [trip, activeDayIndex, days.length],
   )
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
 
   const copyText = async (value: string): Promise<boolean> => {
     try {
@@ -331,9 +338,9 @@ export default function SuccessState({ planDetails, trip, tripId, onStartOver, s
           </div>
         )}
 
-        {shareDialogOpen && (
+        {shareDialogOpen && mounted && createPortal(
           <div
-            className="fixed inset-0 z-[160] bg-ink/35"
+            className="fixed inset-0 z-[160] bg-ink/35 backdrop-blur-[2px]"
             role="dialog"
             aria-modal="true"
             aria-labelledby="share-trip-title"
@@ -385,7 +392,8 @@ export default function SuccessState({ planDetails, trip, tripId, onStartOver, s
                 </button>
               </div>
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
 
         {/* Start over */}

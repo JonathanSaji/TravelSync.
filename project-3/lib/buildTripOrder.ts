@@ -84,9 +84,21 @@ export function isGeneratedTrip(x: unknown): x is GeneratedTrip {
   return typeof o.tripName === 'string' && Array.isArray(o.itinerary)
 }
 
-/** Best-effort day count from CreatorSetup's free-text dates (e.g. "Aug 12–14", "3 days"). */
-export function inferTripDays(dates: string): number {
-  const d = dates.trim()
+/** Best-effort day count from start/end dates, with a legacy free-text fallback. */
+export function inferTripDays(startDate?: string, endDate?: string, legacyDates?: string): number {
+  const start = typeof startDate === 'string' ? startDate.trim() : ''
+  const end = typeof endDate === 'string' ? endDate.trim() : ''
+
+  if (start && end) {
+    const startTs = new Date(`${start}T00:00:00`).getTime()
+    const endTs = new Date(`${end}T00:00:00`).getTime()
+    if (!Number.isNaN(startTs) && !Number.isNaN(endTs) && endTs >= startTs) {
+      const diffDays = Math.floor((endTs - startTs) / (1000 * 60 * 60 * 24)) + 1
+      return Math.min(14, Math.max(1, diffDays))
+    }
+  }
+
+  const d = typeof legacyDates === 'string' ? legacyDates.trim() : ''
   if (!d) return 3
   const dayWord = d.match(/(\d+)\s*days?/i)
   if (dayWord) return Math.min(14, Math.max(1, parseInt(dayWord[1], 10)))
@@ -114,7 +126,11 @@ export function buildIdeasPayload(
 ): string {
   const lines: string[] = []
   if (plan.name.trim()) lines.push(`Trip name: ${plan.name.trim()}`)
-  if (plan.dates.trim()) lines.push(`Dates / duration: ${plan.dates.trim()}`)
+  if (plan.startDate?.trim()) lines.push(`Trip start date: ${plan.startDate.trim()}`)
+  if (plan.endDate?.trim()) lines.push(`Trip end date: ${plan.endDate.trim()}`)
+  if (!plan.startDate?.trim() && !plan.endDate?.trim() && plan.dates?.trim()) {
+    lines.push(`Dates / duration: ${plan.dates.trim()}`)
+  }
   if (plan.group.trim()) lines.push(`Group dynamic: ${plan.group.trim()}`)
   if (plan.budget.trim()) lines.push(`Overall trip budget: ${plan.budget.trim()}`)
   if (lines.length) lines.push('')
@@ -184,13 +200,15 @@ export function buildOrderData(
   const d = draft ?? emptyDraft()
   const planOut = {
     name: plan.name.trim(),
-    dates: plan.dates.trim(),
+    startDate: plan.startDate?.trim() ?? '',
+    endDate: plan.endDate?.trim() ?? '',
+    dates: plan.dates?.trim() ?? '',
     group: plan.group.trim(),
     budget: plan.budget.trim(),
   }
   return {
     location: plan.location.trim() || 'your destination',
-    days: inferTripDays(plan.dates),
+    days: inferTripDays(plan.startDate, plan.endDate, plan.dates),
     plan: planOut,
     ideas: buildIdeasPayload(plan, ideas, d.text, d),
   }

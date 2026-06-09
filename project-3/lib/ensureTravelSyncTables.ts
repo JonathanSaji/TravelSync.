@@ -19,6 +19,7 @@ export async function ensureTravelSyncTables() {
         confirmed BOOLEAN NOT NULL DEFAULT FALSE,
         trip_status TEXT NOT NULL DEFAULT 'planned',
         start_date DATE,
+        end_date DATE,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
@@ -28,16 +29,22 @@ export async function ensureTravelSyncTables() {
     await client.query(`ALTER TABLE "TravelSync".trips ADD COLUMN IF NOT EXISTS confirmed BOOLEAN NOT NULL DEFAULT FALSE`)
     await client.query(`ALTER TABLE "TravelSync".trips ADD COLUMN IF NOT EXISTS trip_status TEXT NOT NULL DEFAULT 'planned'`)
     await client.query(`ALTER TABLE "TravelSync".trips ADD COLUMN IF NOT EXISTS start_date DATE`)
+    await client.query(`ALTER TABLE "TravelSync".trips ADD COLUMN IF NOT EXISTS end_date DATE`)
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS "TravelSync".trip_shares (
         trip_id BIGINT NOT NULL REFERENCES "TravelSync".trips(id) ON DELETE CASCADE,
         shared_with_user_id BIGINT NOT NULL REFERENCES public.accounts(id) ON DELETE CASCADE,
         shared_by_user_id BIGINT REFERENCES public.accounts(id) ON DELETE SET NULL,
+        attendance_confirmed BOOLEAN NOT NULL DEFAULT FALSE,
+        attendance_confirmed_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         PRIMARY KEY (trip_id, shared_with_user_id)
       )
     `)
+
+    await client.query(`ALTER TABLE "TravelSync".trip_shares ADD COLUMN IF NOT EXISTS attendance_confirmed BOOLEAN NOT NULL DEFAULT FALSE`)
+    await client.query(`ALTER TABLE "TravelSync".trip_shares ADD COLUMN IF NOT EXISTS attendance_confirmed_at TIMESTAMPTZ`)
 
     await client.query(`
       CREATE TABLE IF NOT EXISTS "TravelSync".trip_reminder_logs (
@@ -59,7 +66,15 @@ export async function ensureTravelSyncTables() {
     `)
 
     await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_trips_end_date ON "TravelSync".trips(end_date)
+    `)
+
+    await client.query(`
       CREATE INDEX IF NOT EXISTS idx_trip_shares_user ON "TravelSync".trip_shares(shared_with_user_id)
+    `)
+
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_trip_shares_attendance ON "TravelSync".trip_shares(trip_id, attendance_confirmed)
     `)
 
     await client.query(`

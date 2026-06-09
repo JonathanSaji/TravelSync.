@@ -18,9 +18,11 @@ export function isPlanDetails(x: unknown): x is PlanDetails {
   return (
     typeof o.name === 'string' &&
     typeof o.location === 'string' &&
-    typeof o.dates === 'string' &&
     typeof o.group === 'string' &&
-    typeof o.budget === 'string'
+    typeof o.budget === 'string' &&
+    (o.dates === undefined || typeof o.dates === 'string') &&
+    (o.startDate === undefined || typeof o.startDate === 'string') &&
+    (o.endDate === undefined || typeof o.endDate === 'string')
   )
 }
 
@@ -68,6 +70,8 @@ export function buildSharedRecord(planDetails: PlanDetails, ideas: IdeaItem[]): 
       dates: planDetails.dates,
       group: planDetails.group,
       budget: planDetails.budget,
+      startDate: planDetails.startDate,
+      endDate: planDetails.endDate,
     },
     ideas: ideas.map(i => ({
       id: i.id,

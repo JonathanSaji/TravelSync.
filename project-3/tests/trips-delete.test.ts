@@ -1,6 +1,9 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest'
 
 vi.mock('@/lib/db', () => ({ dbQuery: vi.fn() }))
+vi.mock('@/lib/tripOwnerColumn', () => ({
+  getTripOwnerColumn: vi.fn(async () => 'owner_id'),
+}))
 vi.mock('next/server', () => ({
   NextResponse: {
     json: (payload: unknown, init?: { status?: number }) => ({ payload, status: init?.status ?? 200 }),

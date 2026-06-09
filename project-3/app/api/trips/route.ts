@@ -3,6 +3,7 @@ import { dbQuery } from '@/lib/db'
 import { isGeneratedTrip } from '@/lib/buildTripOrder'
 import { isIdeaItem, isPlanDetails } from '@/lib/sharedSandbox'
 import { getTripOwnerColumn } from '@/lib/tripOwnerColumn'
+import { ensureTravelSyncTables } from '@/lib/ensureTravelSyncTables'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +62,7 @@ async function userCanEditTrip(tripId: number, userId: number): Promise<boolean>
 
 export async function POST(req: Request) {
   try {
+    await ensureTravelSyncTables()
     const ownerColumn = await getTripOwnerColumn()
     const body = (await req.json()) as SaveTripBody
     const userId = parseUserId(body.userId)
@@ -81,9 +83,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid itinerary payload.' }, { status: 400 })
     }
 
-    const planDetails = body.planDetails as { startDate?: string }
+    const planDetails = body.planDetails as { startDate?: string; endDate?: string }
     const startDateRaw = typeof planDetails.startDate === 'string' && planDetails.startDate.trim()
       ? planDetails.startDate.trim()
+      : null
+    const endDateRaw = typeof planDetails.endDate === 'string' && planDetails.endDate.trim()
+      ? planDetails.endDate.trim()
       : null
 
     const inserted = await dbQuery<{
@@ -92,8 +97,8 @@ export async function POST(req: Request) {
       updated_at: string
     }>(
       `
-        INSERT INTO "TravelSync".trips (${ownerColumn}, plan_details, ideas, itinerary, start_date)
-        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::date)
+        INSERT INTO "TravelSync".trips (${ownerColumn}, plan_details, ideas, itinerary, start_date, end_date)
+        VALUES ($1, $2::jsonb, $3::jsonb, $4::jsonb, $5::date, $6::date)
         RETURNING id, created_at, updated_at
       `,
       [
@@ -102,6 +107,7 @@ export async function POST(req: Request) {
         JSON.stringify(body.ideas),
         JSON.stringify(body.trip),
         startDateRaw,
+        endDateRaw,
       ],
     )
 
@@ -119,6 +125,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    await ensureTravelSyncTables()
     const ownerColumn = await getTripOwnerColumn()
     const userId = parseUserId(new URL(req.url).searchParams.get('userId'))
     if (!userId) {
@@ -133,9 +140,11 @@ export async function GET(req: Request) {
       plan_details: unknown
       ideas: unknown
       itinerary: unknown
-      confirmed: boolean
+      attendance_confirmed: boolean
+      trip_confirmed: boolean
       trip_status: string
       start_date: string | null
+      end_date: string | null
       created_at: string
       updated_at: string
     }>(
@@ -148,9 +157,11 @@ export async function GET(req: Request) {
           t.plan_details,
           t.ideas,
           t.itinerary,
-          t.confirmed,
+          t.confirmed AS attendance_confirmed,
+          t.confirmed AS trip_confirmed,
           t.trip_status,
           t.start_date,
+          t.end_date,
           t.created_at,
           t.updated_at
         FROM "TravelSync".trips t
@@ -169,9 +180,11 @@ export async function GET(req: Request) {
       plan_details: unknown
       ideas: unknown
       itinerary: unknown
-      confirmed: boolean
+      attendance_confirmed: boolean
+      trip_confirmed: boolean
       trip_status: string
       start_date: string | null
+      end_date: string | null
       created_at: string
       updated_at: string
     }>(
@@ -184,9 +197,11 @@ export async function GET(req: Request) {
           t.plan_details,
           t.ideas,
           t.itinerary,
-          t.confirmed,
+          COALESCE(s.attendance_confirmed, FALSE) AS attendance_confirmed,
+          t.confirmed AS trip_confirmed,
           t.trip_status,
           t.start_date,
+          t.end_date,
           t.created_at,
           t.updated_at
         FROM "TravelSync".trips t
@@ -207,9 +222,11 @@ export async function GET(req: Request) {
         planDetails: r.plan_details,
         ideas: r.ideas,
         trip: r.itinerary,
-        confirmed: Boolean(r.confirmed),
+        confirmed: Boolean(r.attendance_confirmed),
+        tripConfirmed: Boolean(r.trip_confirmed),
         tripStatus: r.trip_status ?? 'planned',
         startDate: r.start_date ?? null,
+        endDate: r.end_date ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -221,9 +238,11 @@ export async function GET(req: Request) {
         planDetails: r.plan_details,
         ideas: r.ideas,
         trip: r.itinerary,
-        confirmed: Boolean(r.confirmed),
+        confirmed: Boolean(r.attendance_confirmed),
+        tripConfirmed: Boolean(r.trip_confirmed),
         tripStatus: r.trip_status ?? 'planned',
         startDate: r.start_date ?? null,
+        endDate: r.end_date ?? null,
         createdAt: r.created_at,
         updatedAt: r.updated_at,
       })),
@@ -236,6 +255,7 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
+    await ensureTravelSyncTables()
     const body = (await req.json()) as UpdateTripBody
     const userId = parseUserId(body.userId)
     const tripId = parseUserId(body.tripId)
@@ -265,11 +285,15 @@ export async function PATCH(req: Request) {
       updates.push(`plan_details = $${params.length}::jsonb`)
 
       // Also update the dedicated start_date column for cron queries
-      const pdStartDate = (body.planDetails as { startDate?: string }).startDate
-      if (typeof pdStartDate === 'string' && pdStartDate.trim()) {
-        params.push(pdStartDate.trim())
-        updates.push(`start_date = $${params.length}::date`)
-      }
+      const pd = body.planDetails as { startDate?: string; endDate?: string }
+      const pdStartDate = typeof pd.startDate === 'string' ? pd.startDate.trim() : ''
+      const pdEndDate = typeof pd.endDate === 'string' ? pd.endDate.trim() : ''
+
+      params.push(pdStartDate || null)
+      updates.push(`start_date = $${params.length}::date`)
+
+      params.push(pdEndDate || null)
+      updates.push(`end_date = $${params.length}::date`)
     }
 
     if (body.ideas !== undefined) {

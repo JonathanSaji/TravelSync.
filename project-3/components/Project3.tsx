@@ -40,11 +40,12 @@ interface SavedTripSummary {
   ideas: IdeaItem[]
   trip: GeneratedTrip
   confirmed: boolean
+  tripConfirmed?: boolean
   tripStatus: string
   startDate: string | null
+  endDate?: string | null
   createdAt: string
   updatedAt: string
-  start_date?: string | null
 }
 
 interface SavedTripsResponse {
@@ -59,7 +60,7 @@ interface HarmonyAppProps {
   initialShareData?: InitialShareData | null
 }
 
-const EMPTY_PLAN: PlanDetails = { name: '', location: '', dates: '', group: '', budget: '' }
+const EMPTY_PLAN: PlanDetails = { name: '', location: '', group: '', budget: '' }
 
 function buildDraftTrip(details: PlanDetails): GeneratedTrip {
   const name = details.name.trim() || `Trip to ${details.location.trim() || 'your destination'}`
@@ -398,7 +399,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
     setPlan(tripSummary.planDetails)
     setIdeas(tripSummary.ideas)
     setSavedTripId(tripSummary.id)
-    setTripStartDate(tripSummary.start_date ?? null)
+    setTripStartDate(tripSummary.startDate ?? null)
     setActiveTripOwnerId(tripSummary.ownerId)
 
     if (tripHasActivities(tripSummary.trip)) {
@@ -427,7 +428,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
   }
 
   const handleStartOver = () => {
-    setPlan({ name: '', location: '', dates: '', group: '', budget: '' })
+    setPlan(EMPTY_PLAN)
     setIdeas([])
     setGeneratedTrip(null)
     setSavedTripId(null)
@@ -478,7 +479,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
         setSharedTrips(prev => prev.filter(t => t.id !== tripId))
       }
       if (savedTripId === tripId) {
-        setPlan({ name: '', location: '', dates: '', group: '', budget: '' })
+        setPlan(EMPTY_PLAN)
         setIdeas([])
         setGeneratedTrip(null)
         setSavedTripId(null)
@@ -615,7 +616,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
         showToast(typeof data?.error === 'string' ? data.error : 'Could not confirm trip.')
         return
       }
-      showToast('Trip confirmed! Confirmation emails sent to everyone.')
+      showToast('Attendance confirmed. Email notifications were sent automatically.')
       void loadSavedTrips()
     } catch {
       showToast('Could not reach the server.')
@@ -682,7 +683,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                             )}
                           </div>
                           {t.confirmed ? (
-                            <span className="shrink-0 rounded-full bg-sage px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.07em] text-white">Confirmed</span>
+                            <span className="shrink-0 rounded-full bg-sage px-2 py-1 text-[0.62rem] font-bold uppercase tracking-[0.07em] text-white">Attending</span>
                           ) : (
                             <button
                               type="button"
@@ -701,7 +702,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
               )}
               <div className="px-4 py-3 border-t border-cream-deep">
                 <p className="text-[0.7rem] text-ink-faint leading-relaxed">
-                  Confirm your trip to notify everyone and get subscription reminders via{' '}
+                  Confirm your attendance to notify the group and get subscription reminders via{' '}
                   <a href="https://trackersync.sub-sync.ca" target="_blank" rel="noopener noreferrer" className="text-sage underline">SubSync</a>.
                 </p>
               </div>
@@ -786,7 +787,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                               </span>
                               {tripSummary.confirmed && (
                                 <span className="rounded-full bg-sage/20 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.06em] text-sage">
-                                  ✓ Confirmed
+                                  ✓ Attending
                                 </span>
                               )}
                             </div>
@@ -805,7 +806,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                               className="w-full rounded-card bg-terra/90 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.07em] text-white transition hover:bg-terra disabled:opacity-60"
                               aria-label={`Confirm trip: ${tripSummary.planDetails.name || tripSummary.trip.tripName}`}
                             >
-                              {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Trip'}
+                              {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Attendance'}
                             </button>
                           </div>
                         )}
@@ -857,7 +858,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                               </span>
                               {tripSummary.confirmed && (
                                 <span className="rounded-full bg-sage/20 px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.06em] text-sage">
-                                  ✓ Confirmed
+                                  ✓ Attending
                                 </span>
                               )}
                             </div>
@@ -876,7 +877,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                               className="w-full rounded-card bg-terra/90 px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.07em] text-white transition hover:bg-terra disabled:opacity-60"
                               aria-label={`Confirm trip: ${tripSummary.planDetails.name || tripSummary.trip.tripName}`}
                             >
-                              {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Trip'}
+                              {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Attendance'}
                             </button>
                           </div>
                         )}

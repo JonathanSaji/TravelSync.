@@ -65,11 +65,22 @@ function Field({ id, label, value, onChange, placeholder, maxLength, className =
 export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthClick }: Props) {
   const [name,      setName]      = useState('')
   const [location,  setLocation]  = useState('')
-  const [dates,     setDates]     = useState('')
   const [startDate, setStartDate] = useState('')
+  const [endDate,   setEndDate]   = useState('')
   const [group,     setGroup]     = useState('Friends')
   const [budget,    setBudget]    = useState('Standard')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const durationText = (() => {
+    if (!startDate || !endDate) return 'Set both dates to calculate duration.'
+    const start = new Date(`${startDate}T00:00:00`)
+    const end = new Date(`${endDate}T00:00:00`)
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 'Invalid date range.'
+    const diffMs = end.getTime() - start.getTime()
+    if (diffMs < 0) return 'End date must be on or after start date.'
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24)) + 1
+    return days === 1 ? 'Duration: 1 day' : `Duration: ${days} days`
+  })()
 
   const handleSubmit = async () => {
     if (isSubmitting) return
@@ -78,10 +89,11 @@ export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthCl
       await onSubmit({
         name:      name.trim()     || 'My Plan',
         location:  location.trim() || 'Location TBD',
-        dates:     dates.trim()    || 'Dates TBD',
         group:     group.trim()    || 'Group Dynamic TBD',
         budget:    budget.trim()   || 'Budget TBD',
         startDate: startDate.trim() || undefined,
+        endDate:   endDate.trim() || undefined,
+        dates:     startDate && endDate ? `${startDate} to ${endDate}` : undefined,
       })
     } finally {
       setIsSubmitting(false)
@@ -154,7 +166,6 @@ export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthCl
               <CardLabel>Plan Details</CardLabel>
               <Field id="inp-name"  label="Plan Name"       value={name}     onChange={setName}     placeholder="e.g. Ottawa Weekend, Friday Dinner" maxLength={52} disabled={!isLoggedIn} />
               <Field id="inp-loc"   label="Location"        value={location} onChange={setLocation} placeholder="e.g. Downtown Toronto, Japan"                maxLength={60} disabled={!isLoggedIn} />
-              <Field id="inp-dates" label="Dates / Duration" value={dates}   onChange={setDates}    placeholder="e.g. Aug 12–14  or  4 hours"          maxLength={40} disabled={!isLoggedIn} />
 
               <div className="last:mb-0 mb-[13px]">
                 <label htmlFor="inp-start-date" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
@@ -171,6 +182,24 @@ export default function CreatorSetup({ onSubmit, isLoggedIn, authLabel, onAuthCl
                   aria-label="Trip start date for reminders"
                 />
                 <p className="mt-1 text-[0.68rem] text-ink-faint">Used to send you reminder emails before your trip.</p>
+              </div>
+
+              <div className="last:mb-0 mb-[13px]">
+                <label htmlFor="inp-end-date" className="block text-[0.74rem] font-semibold tracking-[0.05em] uppercase text-ink-mid mb-1.5">
+                  Trip End Date
+                </label>
+                <input
+                  id="inp-end-date"
+                  type="date"
+                  value={endDate}
+                  min={startDate || undefined}
+                  onChange={e => setEndDate(e.target.value)}
+                  disabled={!isLoggedIn}
+                  autoComplete="off"
+                  className="input-field"
+                  aria-label="Trip end date"
+                />
+                <p className="mt-1 text-[0.68rem] text-ink-faint">{durationText}</p>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">

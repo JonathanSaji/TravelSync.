@@ -447,7 +447,12 @@ export default function IdeaSandbox({
       >
         {[
           { icon: '📍', value: planDetails.location },
-          { icon: '🗓️', value: planDetails.dates },
+          ...(planDetails.startDate?.trim()
+            ? [{ icon: '🗓️', value: `Start ${planDetails.startDate.trim()}` } as const]
+            : []),
+          ...(planDetails.endDate?.trim()
+            ? [{ icon: '🏁', value: `End ${planDetails.endDate.trim()}` } as const]
+            : []),
           { icon: '✦',  value: planDetails.name },
           ...(planDetails.group.trim()
             ? [{ icon: '👥', value: planDetails.group } as const]

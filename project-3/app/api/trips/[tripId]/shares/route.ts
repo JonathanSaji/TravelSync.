@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { dbQuery } from '@/lib/db'
 import { getTripOwnerColumn } from '@/lib/tripOwnerColumn'
+import { ensureTravelSyncTables } from '@/lib/ensureTravelSyncTables'
 
 export const dynamic = 'force-dynamic'
 
@@ -39,6 +40,7 @@ async function loadTripOwner(tripId: number): Promise<number | null> {
 
 export async function GET(req: Request) {
   try {
+    await ensureTravelSyncTables()
     const tripId = parseTripId(req)
     const viewerId = parsePositiveId(new URL(req.url).searchParams.get('userId'))
 
@@ -100,6 +102,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    await ensureTravelSyncTables()
     const tripId = parseTripId(req)
     if (!tripId) {
       return NextResponse.json({ error: 'Valid tripId is required.' }, { status: 400 })
@@ -154,10 +157,18 @@ export async function POST(req: Request) {
       created_at: string
     }>(
       `
-        INSERT INTO "TravelSync".trip_shares (trip_id, shared_with_user_id, shared_by_user_id)
-        VALUES ($1, $2, $3)
+        INSERT INTO "TravelSync".trip_shares (
+          trip_id,
+          shared_with_user_id,
+          shared_by_user_id,
+          attendance_confirmed,
+          attendance_confirmed_at
+        )
+        VALUES ($1, $2, $3, FALSE, NULL)
         ON CONFLICT (trip_id, shared_with_user_id) DO UPDATE
-          SET shared_by_user_id = EXCLUDED.shared_by_user_id
+          SET shared_by_user_id = EXCLUDED.shared_by_user_id,
+              attendance_confirmed = FALSE,
+              attendance_confirmed_at = NULL
         RETURNING trip_id, shared_with_user_id, shared_by_user_id, created_at
       `,
       [tripId, sharedUser.id, ownerUserId],
@@ -183,6 +194,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    await ensureTravelSyncTables()
     const tripId = parseTripId(req)
     if (!tripId) {
       return NextResponse.json({ error: 'Valid tripId is required.' }, { status: 400 })

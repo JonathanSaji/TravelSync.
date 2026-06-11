@@ -3,11 +3,14 @@
 export interface PlanDetails {
   name:      string
   location:  string
-  dates:     string
   group:     string
   budget:    string
-  /** ISO date string YYYY-MM-DD representing the trip start date. Used for reminders. */
+  /** Legacy free-text date field preserved for backward compatibility. */
+  dates?:    string
+  /** ISO date string YYYY-MM-DD representing the trip start date. */
   startDate?: string
+  /** ISO date string YYYY-MM-DD representing the trip end date. */
+  endDate?: string
 }
 
 /** Per-idea time footprint (dropdown in Idea Sandbox). */

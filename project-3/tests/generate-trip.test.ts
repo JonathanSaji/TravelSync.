@@ -1,24 +1,23 @@
-import { vi, describe, it, expect } from 'vitest'
+import { vi, describe, it, expect, beforeAll } from 'vitest'
 
-// Mock the Google GenAI client so tests don't call real API
-vi.mock('@google/genai', () => {
-  // Provide a constructor-style mock so `new GoogleGenAI(...)` works
+// Mock OpenAI client used by app/api/generate-trip/route.ts
+vi.mock('openai', () => {
+  const OpenAIMock = vi.fn().mockImplementation(function () {
+    return {
+      responses: {
+        create: async () => ({
+          output_text: JSON.stringify({
+            tripName: 'My Trip',
+            harmonyPlan: { note: 'All good', conflicts: [] },
+            itinerary: [],
+          }),
+        }),
+      },
+    }
+  })
+
   return {
-    GoogleGenAI: vi.fn().mockImplementation(function () {
-      return {
-        models: {
-          generateContent: async ({ contents }: { contents: string }) => {
-            // Return a predictable JSON string similar to the real service
-            const payload = {
-              tripName: 'My Trip',
-              harmonyPlan: { note: 'All good', conflicts: [] },
-              itinerary: [],
-            }
-            return { text: JSON.stringify(payload) }
-          },
-        },
-      }
-    }),
+    default: OpenAIMock,
   }
 })
 
@@ -30,6 +29,10 @@ vi.mock('next/server', () => ({
 }))
 
 import { POST } from '../app/api/generate-trip/route'
+
+beforeAll(() => {
+  process.env.OPENAI_API_KEY = 'test-key'
+})
 
 describe('generate-trip API (mocked)', () => {
   it('returns parsed JSON from mocked AI', async () => {

@@ -105,6 +105,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
   const [loginBusy, setLoginBusy] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [confirmingTripId, setConfirmingTripId] = useState<string | null>(null)
+  const [unconfirmPromptTripId, setUnconfirmPromptTripId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<{
     tripId: string
     tripName: string
@@ -616,7 +617,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
         showToast(typeof data?.error === 'string' ? data.error : 'Could not confirm trip.')
         return
       }
-      showToast('Attendance confirmed. Email notifications were sent automatically.')
+      showToast('Attendance confirmed. Check your email for the itinerary.')
       void loadSavedTrips()
     } catch {
       showToast('Could not reach the server.')
@@ -624,6 +625,31 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
       setConfirmingTripId(null)
     }
   }
+
+  const handleUnconfirmTrip = async (tripId: string) => {
+    if (!authUser?.id || confirmingTripId) return
+    setConfirmingTripId(tripId)
+    try {
+      const res = await fetch(`/api/trips/${encodeURIComponent(tripId)}/confirm`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: authUser.id }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(typeof data?.error === 'string' ? data.error : 'Could not unconfirm trip.')
+        return
+      }
+      setUnconfirmPromptTripId(null)
+      showToast('Attendance unconfirmed.')
+      void loadSavedTrips()
+    } catch {
+      showToast('Could not reach the server.')
+    } finally {
+      setConfirmingTripId(null)
+    }
+  }
+
 
   // ── Render ──────────────────────────────────────────────────
   return (
@@ -811,6 +837,50 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                           </div>
                         )}
 
+                        {tripSummary.confirmed && (
+                          <div className="border-t border-cream-deep px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation()
+                                setUnconfirmPromptTripId(prev => (prev === tripSummary.id ? null : tripSummary.id))
+                              }}
+                              disabled={confirmingTripId === tripSummary.id}
+                              className="w-full rounded-card bg-[#6a1f2d] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.06em] text-white transition hover:bg-[#541824] disabled:opacity-60"
+                              aria-label={`Unconfirm trip: ${tripSummary.planDetails.name || tripSummary.trip.tripName}`}
+                            >
+                              {confirmingTripId === tripSummary.id ? 'Unconfirming…' : 'Unconfirm Attendance'}
+                            </button>
+                            {unconfirmPromptTripId === tripSummary.id && (
+                              <div className="mt-1 rounded-card border border-cream-deep bg-[#fff6f5] p-1.5 text-[0.6rem] text-ink">
+                                <p className="mb-1 leading-tight text-[#6a1f2d]">Unconfirm attendance?</p>
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setUnconfirmPromptTripId(null)
+                                    }}
+                                    className="rounded-card border border-cream-deep bg-white px-1.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.04em] text-ink-mid hover:bg-parchment"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      void handleUnconfirmTrip(tripSummary.id)
+                                    }}
+                                    className="rounded-card bg-[#6a1f2d] px-1.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.04em] text-white hover:bg-[#541824]"
+                                  >
+                                    Yes, Unconfirm
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         <button
                           type="button"
                           onClick={e => { e.stopPropagation(); handleDeleteTripClick(tripSummary) }}
@@ -879,6 +949,50 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                             >
                               {confirmingTripId === tripSummary.id ? 'Confirming…' : 'Confirm Attendance'}
                             </button>
+                          </div>
+                        )}
+
+                        {tripSummary.confirmed && (
+                          <div className="border-t border-cream-deep px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={e => {
+                                e.stopPropagation()
+                                setUnconfirmPromptTripId(prev => (prev === tripSummary.id ? null : tripSummary.id))
+                              }}
+                              disabled={confirmingTripId === tripSummary.id}
+                              className="w-full rounded-card bg-[#6a1f2d] px-2 py-0.5 text-[0.6rem] font-semibold uppercase tracking-[0.06em] text-white transition hover:bg-[#541824] disabled:opacity-60"
+                              aria-label={`Unconfirm trip: ${tripSummary.planDetails.name || tripSummary.trip.tripName}`}
+                            >
+                              {confirmingTripId === tripSummary.id ? 'Unconfirming…' : 'Unconfirm Attendance'}
+                            </button>
+                            {unconfirmPromptTripId === tripSummary.id && (
+                              <div className="mt-1 rounded-card border border-cream-deep bg-[#fff6f5] p-1.5 text-[0.6rem] text-ink">
+                                <p className="mb-1 leading-tight text-[#6a1f2d]">Unconfirm attendance?</p>
+                                <div className="flex items-center justify-end gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      setUnconfirmPromptTripId(null)
+                                    }}
+                                    className="rounded-card border border-cream-deep bg-white px-1.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.04em] text-ink-mid hover:bg-parchment"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={e => {
+                                      e.stopPropagation()
+                                      void handleUnconfirmTrip(tripSummary.id)
+                                    }}
+                                    className="rounded-card bg-[#6a1f2d] px-1.5 py-0.5 text-[0.58rem] font-semibold uppercase tracking-[0.04em] text-white hover:bg-[#541824]"
+                                  >
+                                    Yes, Unconfirm
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 

@@ -161,8 +161,10 @@ export async function POST(req: Request) {
       }
     })
 
-    // Fire emails without blocking the response
-    void Promise.all(emailPromises)
+    // Fire emails without blocking the response — log aggregate failures
+    Promise.all(emailPromises).catch(err =>
+      console.error('Unexpected error sending attendance emails:', err),
+    )
 
     return NextResponse.json({
       ok: true,

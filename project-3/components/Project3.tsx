@@ -748,7 +748,7 @@ export default function HarmonyApp({ shareFromUrl, initialShareData = null }: Ha
                               {confirmingTripId === t.id ? '…' : 'Confirm'}
                             </button>
                           ) : null
-                          )}
+                          }
                         </div>
                       </div>
                     )

@@ -170,6 +170,12 @@ export async function PATCH(req: Request) {
         `UPDATE "TravelSync".trips SET confirmed = FALSE, trip_status = 'planned', updated_at = NOW() WHERE id = $1`,
         [tripId],
       )
+
+      // Reset reminder send logs for the trip so reconfirming can trigger fresh reminders.
+      await dbQuery(
+        `DELETE FROM "TravelSync".trip_reminder_logs WHERE trip_id = $1`,
+        [tripId],
+      )
     } else {
       await dbQuery(
         `
@@ -178,6 +184,12 @@ export async function PATCH(req: Request) {
               attendance_confirmed_at = NULL
           WHERE trip_id = $1 AND shared_with_user_id = $2
         `,
+        [tripId, userId],
+      )
+
+      // Reset reminder send logs for this participant so reconfirming can trigger fresh reminders.
+      await dbQuery(
+        `DELETE FROM "TravelSync".trip_reminder_logs WHERE trip_id = $1 AND user_id = $2`,
         [tripId, userId],
       )
     }

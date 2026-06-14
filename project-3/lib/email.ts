@@ -1,26 +1,13 @@
-import nodemailer from 'nodemailer'
-import dns from 'node:dns'
+import { Resend } from 'resend'
 
-try {
-  dns.setDefaultResultOrder('ipv4first')
-} catch {
-  // Ignore for runtimes that do not support result order overrides.
-}
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY?.trim()
 
-function getTransporter() {
-  const user = process.env.EMAIL_USER?.trim()
-  const pass = process.env.EMAIL_PASS?.trim()
-
-  if (!user || !pass) {
-    throw new Error('EMAIL_USER and EMAIL_PASS must be set in environment variables.')
+  if (!apiKey) {
+    throw new Error('RESEND_API_KEY must be set in environment variables.')
   }
 
-  return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
-    auth: { user, pass },
-  })
+  return new Resend(apiKey)
 }
 
 export interface EmailPayload {
@@ -30,13 +17,18 @@ export interface EmailPayload {
 }
 
 export async function sendEmail(payload: EmailPayload): Promise<void> {
-  const transporter = getTransporter()
-  const from = `"TravelSync" <${process.env.EMAIL_USER?.trim()}>`
+  const resend = getResendClient()
 
-  await transporter.sendMail({
-    from,
-    to: Array.isArray(payload.to) ? payload.to.join(', ') : payload.to,
+  const toAddresses = Array.isArray(payload.to) ? payload.to : [payload.to]
+
+  const { error } = await resend.emails.send({
+    from: 'TravelSync <noreply@sub-sync.ca>',
+    to: toAddresses,
     subject: payload.subject,
     html: payload.html,
   })
+
+  if (error) {
+    throw new Error(`Resend error: ${error.message}`)
+  }
 }

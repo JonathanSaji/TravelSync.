@@ -14,21 +14,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 })
   }
 
-  const emailUser = process.env.EMAIL_USER?.trim()
-  const emailPass = process.env.EMAIL_PASS?.trim()
+  const resendApiKey = process.env.RESEND_API_KEY?.trim()
 
-  // Check 1: Are env vars set?
-  if (!emailUser || !emailPass) {
+  // Check 1: Is the Resend API key set?
+  if (!resendApiKey) {
     return NextResponse.json({
       ok: false,
       check: 'env_vars',
       result: 'FAIL',
-      detail: `EMAIL_USER=${emailUser ? 'set' : 'MISSING'}, EMAIL_PASS=${emailPass ? 'set' : 'MISSING'}`,
+      detail: 'RESEND_API_KEY is MISSING',
     }, { status: 500 })
   }
 
   // Check 2: Try sending a real email
-  const to = emailUser // send to yourself as a smoke test
+  const to = 'onboarding@resend.dev' // Resend test address; change to a real address once domain is verified
   const subject = 'TravelSync — Email Test'
   const html = `
     <div style="font-family:Arial,sans-serif;padding:20px;background:#f7f5f0;">
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
         <h2 style="margin:0 0 12px;font-size:20px;color:#2c2b28;">✅ Email system is working</h2>
         <p style="color:#5c5a56;line-height:1.6;margin:0;">
           This is a test email triggered from the admin panel.<br/>
-          ENV: EMAIL_USER is <strong>${emailUser}</strong>.
+          Sent via <strong>Resend</strong>.
         </p>
       </div>
     </div>
